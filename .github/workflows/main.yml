@@ -57,7 +57,7 @@ jobs:
         run: |
           7z a -tzip "mod32.zip" "./export/32bit/windows/bin/*"
       - name: Publish Artifact
-        uses: actions/upload-artifact@v2.2.4
+        uses: actions/upload-artifact@v4
         with:
           name: windowsBuild
           path: |
