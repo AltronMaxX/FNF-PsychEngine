@@ -23,7 +23,7 @@
 	<define name="MODS_ALLOWED" if="desktop" />
 	<define name="HSCRIPT_ALLOWED" if="desktop" />
 	<define name="LUA_ALLOWED" if="desktop" />
-	<define name="ACHIEVEMENTS_ALLOWED" />
+	<!--define name="ACHIEVEMENTS_ALLOWED" /-->
 	<define name="DISCORD_ALLOWED" />
 	<define name="TRANSLATIONS_ALLOWED" />
 	<define name="IRIS_DEBUG"/>
@@ -32,6 +32,7 @@
 	<define name="SHOW_LOADING_SCREEN" />
 	<define name="PSYCH_WATERMARKS"/> <!-- DELETE THIS TO REMOVE THE PSYCH LOGO FROM LOADING SCREEN -->
 
+	<define name="BASE_GAME_FILES" />
 	<section if="officialBuild">
 		<define name="TITLE_SCREEN_EASTER_EGG"/>
 		<define name="BASE_GAME_FILES" />
@@ -113,8 +114,9 @@
 
 	<!-- _______________________________ Libraries ______________________________ -->
 
-	<haxelib name="flixel" version="5.6.1"/>
-	<haxelib name="flixel-addons" version="3.2.2"/>
+	<haxelib name="flixel"/>
+	<haxelib name="flixel-addons"/>
+	<haxelib name="flixel-ui"/>
 	<haxelib name="tjson" version="1.4.0"/>
 
 	<!--Psych stuff needed-->

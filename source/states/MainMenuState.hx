@@ -14,7 +14,7 @@ enum MainMenuColumn {
 
 class MainMenuState extends MusicBeatState
 {
-	public static var psychEngineVersion:String = '1.0.4'; // This is also used for Discord RPC
+	public static var psychEngineVersion:String = '0.1.1 Demo'; // This is also used for Discord RPC
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
 	var allowMouse:Bool = true; //Turn this off to block mouse movement in menus
@@ -38,6 +38,7 @@ class MainMenuState extends MusicBeatState
 	var camFollow:FlxObject;
 
 	static var showOutdatedWarning:Bool = true;
+	static var finishedFunnyMove:Bool = false;
 	override function create()
 	{
 		super.create();
@@ -81,9 +82,19 @@ class MainMenuState extends MusicBeatState
 
 		for (num => option in optionShit)
 		{
-			var item:FlxSprite = createMenuItem(option, 0, (num * 140) + 90);
-			item.y += (4 - optionShit.length) * 70; // Offsets for when you have anything other than 4 items
-			item.screenCenter(X);
+			var item:FlxSprite = createMenuItem(option, -1000, (num * 140) + 90);
+			var scr = (4 - optionShit.length) * 70;
+			item.y += scr; // Offsets for when you have anything other than 4 items
+			FlxTween.tween(item, {x: (FlxG.width - item.width) / 2}, 2, {
+				ease: FlxEase.expoInOut,
+				onComplete: function(flxTween:FlxTween)
+				{
+					if (num == optionShit.length - 1) {
+						finishedFunnyMove = true;
+						changeItem();
+					}
+				}
+			});
 		}
 
 		if (leftOption != null)
@@ -94,14 +105,14 @@ class MainMenuState extends MusicBeatState
 			rightItem.x -= rightItem.width;
 		}
 
-		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, "Psych Engine v" + psychEngineVersion, 12);
+		var psychVer:FlxText = new FlxText(12, FlxG.height - 24, 0, "Friday Night Funkin' Vs Vindix v" + psychEngineVersion, 12);
 		psychVer.scrollFactor.set();
 		psychVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(psychVer);
-		var fnfVer:FlxText = new FlxText(12, FlxG.height - 24, 0, "Friday Night Funkin' v" + Application.current.meta.get('version'), 12);
+		/*var fnfVer:FlxText = new FlxText(12, FlxG.height - 24, 0, "Friday Night Funkin' v" + Application.current.meta.get('version'), 12);
 		fnfVer.scrollFactor.set();
 		fnfVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(fnfVer);
+		add(fnfVer);*/
 		changeItem();
 
 		#if ACHIEVEMENTS_ALLOWED
@@ -335,7 +346,7 @@ class MainMenuState extends MusicBeatState
 					if(memb == item)
 						continue;
 
-					FlxTween.tween(memb, {alpha: 0}, 0.4, {ease: FlxEase.quadOut});
+					FlxTween.tween(memb, {x: -1000}, 0.4, {ease: FlxEase.quadOut});
 				}
 			}
 			#if desktop

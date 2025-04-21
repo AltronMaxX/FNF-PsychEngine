@@ -52,6 +52,9 @@ class FreeplayState extends MusicBeatState
 
 	var player:MusicPlayer;
 
+	var bpmInput:flixel.addons.ui.FlxInputText;
+	var bpmText:FlxText;
+
 	override function create()
 	{
 		//Paths.clearStoredMemory();
@@ -152,6 +155,20 @@ class FreeplayState extends MusicBeatState
 
 		add(scoreText);
 
+		if (FlxG.save.data.freeplayBPM == null)
+			FlxG.save.data.freeplayBPM = 100;
+
+		bpmText = new FlxText(diffText.x, diffText.y + 28, 0, "Cur bpm:", 12);
+		bpmText.font = scoreText.font;
+		bpmText.visible = false;
+		add(bpmText);
+
+		bpmInput = new flixel.addons.ui.FlxInputText(bpmText.x, bpmText.y + 18, 140, "", 12);
+		bpmInput.font = bpmInput.font;
+		bpmInput.text = FlxG.save.data.freeplayBPM;
+		bpmInput.visible = false;
+		Conductor.bpm = FlxG.save.data.freeplayBPM;
+		add(bpmInput);
 
 		missingTextBG = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		missingTextBG.alpha = 0.6;
@@ -214,9 +231,13 @@ class FreeplayState extends MusicBeatState
 	public static var opponentVocals:FlxSound = null;
 	var holdTime:Float = 0;
 
+	var bpmSettingActive = false;
 	var stopMusicPlay:Bool = false;
 	override function update(elapsed:Float)
 	{
+		if (FlxG.sound.music != null)
+			Conductor.songPosition = FlxG.sound.music.time;
+
 		if(WeekData.weeksList.length < 1)
 			return;
 
@@ -300,7 +321,7 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		if (controls.BACK)
+		if (controls.BACK && !bpmSettingActive)
 		{
 			if (player.playingMusic)
 			{
@@ -321,6 +342,24 @@ class FreeplayState extends MusicBeatState
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				MusicBeatState.switchState(new MainMenuState());
 			}
+		}
+
+		if (controls.justPressed('debug_1') && !bpmSettingActive)
+		{
+			bpmSettingActive = true;
+			FlxG.mouse.visible = true;
+			scoreBG.makeGraphic(1, 108, 0xFF000000);
+			bpmInput.visible = true;
+			bpmText.visible = true;
+		}
+		else if (controls.justPressed('debug_1') && bpmSettingActive)
+		{
+			bpmSettingActive = false;
+			FlxG.mouse.visible = false;
+			scoreBG.makeGraphic(1, 66, 0xFF000000);
+			bpmInput.visible = false;
+			bpmText.visible = false;
+			Conductor.bpm = FlxG.save.data.freeplayBPM = Std.parseFloat(bpmInput.text);
 		}
 
 		if(FlxG.keys.justPressed.CONTROL && !player.playingMusic)
@@ -403,7 +442,7 @@ class FreeplayState extends MusicBeatState
 				player.pauseOrResume(!player.playing);
 			}
 		}
-		else if (controls.ACCEPT && !player.playingMusic)
+		else if (controls.ACCEPT && !player.playingMusic && !bpmSettingActive)
 		{
 			persistentUpdate = false;
 			var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
@@ -461,6 +500,19 @@ class FreeplayState extends MusicBeatState
 
 		updateTexts(elapsed);
 		super.update(elapsed);
+
+		var mult:Float = FlxMath.lerp(1, iconArray[curSelected].scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+		iconArray[curSelected].scale.set(mult, mult);
+		iconArray[curSelected].updateHitbox();
+
+		if (curBeat % 4 == 0)
+		{
+			var multX:Float = FlxMath.lerp(1, bg.scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+			var multY:Float = FlxMath.lerp(1, bg.scale.y, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+			bg.scale.set(multX, multY);
+			bg.screenCenter();
+			bg.updateHitbox();
+		}
 	}
 	
 	function getVocalFromCharacter(char:String)
@@ -532,6 +584,8 @@ class FreeplayState extends MusicBeatState
 			var icon:HealthIcon = iconArray[num];
 			item.alpha = 0.6;
 			icon.alpha = 0.6;
+			icon.scale.set(1, 1);
+			icon.updateHitbox();
 			if (item.targetY == curSelected)
 			{
 				item.alpha = 1;
@@ -605,6 +659,21 @@ class FreeplayState extends MusicBeatState
 		if (!FlxG.sound.music.playing && !stopMusicPlay)
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));
 	}	
+
+	override function beatHit()
+	{
+		super.beatHit();
+
+		iconArray[curSelected].scale.set(1.2, 1.2);
+		iconArray[curSelected].updateHitbox();
+
+		if (curBeat % 4 == 0)
+		{
+			bg.scale.set(1.05, 1.05);
+			bg.screenCenter();
+			bg.updateHitbox();
+		}
+	}
 }
 
 class SongMetadata
