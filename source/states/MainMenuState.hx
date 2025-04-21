@@ -28,7 +28,8 @@ class MainMenuState extends MusicBeatState
 		'story_mode',
 		'freeplay',
 		#if MODS_ALLOWED 'mods', #end
-		'credits'
+		'credits',
+		'donate'
 	];
 
 	var leftOption:String = #if ACHIEVEMENTS_ALLOWED 'achievements' #else null #end;
@@ -331,7 +332,7 @@ class MainMenuState extends MusicBeatState
 								PlayState.stageUI = 'normal';
 							}
 						case 'donate':
-							CoolUtil.browserLoad('https://ninja-muffin24.itch.io/funkin');
+							CoolUtil.browserLoad('https://www.donationalerts.com/r/vindix_1');
 							selectedSomethin = false;
 							item.visible = true;
 						default:
@@ -341,12 +342,15 @@ class MainMenuState extends MusicBeatState
 					}
 				});
 				
-				for (memb in menuItems)
+				if (option != 'donate')
 				{
-					if(memb == item)
-						continue;
-
-					FlxTween.tween(memb, {x: -1000}, 0.4, {ease: FlxEase.quadOut});
+					for (memb in menuItems)
+					{
+						if(memb == item)
+							continue;
+	
+						FlxTween.tween(memb, {x: -1000}, 0.4, {ease: FlxEase.quadOut});
+					}
 				}
 			}
 			#if desktop
