@@ -146,7 +146,7 @@ class LoadingState extends MusicBeatState
 		var bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		bg.setGraphicSize(Std.int(FlxG.width));
-		bg.color = 0xFFD16FFF;
+		bg.color = 0x3a3d6f;
 		bg.updateHitbox();
 		addBehindBar(bg);
 	
