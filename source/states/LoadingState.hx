@@ -91,18 +91,18 @@ class LoadingState extends MusicBeatState
 	{
 		persistentUpdate = true;
 		barGroup = new FlxSpriteGroup();
-		add(barGroup);
+		//add(barGroup);
 
 		var barBack:FlxSprite = new FlxSprite(0, 660).makeGraphic(1, 1, FlxColor.BLACK);
 		barBack.scale.set(FlxG.width - 300, 25);
 		barBack.updateHitbox();
 		barBack.screenCenter(X);
-		barGroup.add(barBack);
+		//barGroup.add(barBack);
 
 		bar = new FlxSprite(barBack.x + 5, barBack.y + 5).makeGraphic(1, 1, FlxColor.WHITE);
 		bar.scale.set(0, 15);
 		bar.updateHitbox();
-		barGroup.add(bar);
+		//barGroup.add(bar);
 		barWidth = Std.int(barBack.width - 10);
 
 		#if HSCRIPT_ALLOWED
@@ -148,12 +148,12 @@ class LoadingState extends MusicBeatState
 		bg.setGraphicSize(Std.int(FlxG.width));
 		bg.color = 0x3a3d6f;
 		bg.updateHitbox();
-		addBehindBar(bg);
+		//addBehindBar(bg);
 	
 		loadingText = new FlxText(520, 600, 400, Language.getPhrase('now_loading', 'Now Loading', ['...']), 32);
 		loadingText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE_FAST, FlxColor.BLACK);
 		loadingText.borderSize = 2;
-		addBehindBar(loadingText);
+		//addBehindBar(loadingText);
 	
 		logo = new FlxSprite(0, 0).loadGraphic(Paths.image('loading_screen/icon'));
 		logo.antialiasing = ClientPrefs.data.antialiasing;
@@ -162,20 +162,20 @@ class LoadingState extends MusicBeatState
 		logo.screenCenter();
 		logo.x -= 50;
 		logo.y -= 40;
-		addBehindBar(logo);
+		//addBehindBar(logo);
 
 		#else // BASE GAME LOADING SCREEN
 		var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
 		bg.scale.set(FlxG.width, FlxG.height);
 		bg.updateHitbox();
 		bg.screenCenter();
-		addBehindBar(bg);
+		//addBehindBar(bg);
 
 		funkay = new FlxSprite(0, 0).loadGraphic(Paths.image('funkay'));
 		funkay.antialiasing = ClientPrefs.data.antialiasing;
 		funkay.setGraphicSize(0, FlxG.height);
 		funkay.updateHitbox();
-		addBehindBar(funkay);
+		//addBehindBar(funkay);
 		#end
 		super.create();
 
@@ -188,7 +188,7 @@ class LoadingState extends MusicBeatState
 
 	function addBehindBar(obj:flixel.FlxBasic)
 	{
-		insert(members.indexOf(barGroup), obj);
+		//insert(members.indexOf(barGroup), obj);
 	}
 
 	var transitioning:Bool = false;
