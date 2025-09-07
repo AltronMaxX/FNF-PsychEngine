@@ -44,6 +44,8 @@ class MainMenuState extends MusicBeatState
 	{
 		super.create();
 
+		finishedFunnyMove = false;
+
 		#if MODS_ALLOWED
 		Mods.pushGlobalMods();
 		#end
@@ -161,7 +163,7 @@ class MainMenuState extends MusicBeatState
 		if (FlxG.sound.music.volume < 0.8)
 			FlxG.sound.music.volume = Math.min(FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
 
-		if (!selectedSomethin)
+		if (!selectedSomethin && finishedFunnyMove)
 		{
 			if (controls.UI_UP_P)
 				changeItem(-1);

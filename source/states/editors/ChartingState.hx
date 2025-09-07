@@ -632,6 +632,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		// SONG TAB
 		songNameInputText.text = PlayState.SONG.song;
 		allowVocalsCheckBox.checked = (PlayState.SONG.needsVoices != false); //If the song for some reason does not have this value, it will be set to true
+		artistInputText.text = PlayState.SONG.artist == null ? "None" : PlayState.SONG.artist;
 
 		bpmStepper.value = PlayState.SONG.bpm;
 		scrollSpeedStepper.value = PlayState.SONG.speed;
@@ -3168,6 +3169,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	}
 
 	var songNameInputText:PsychUIInputText;
+	var artistInputText:PsychUIInputText;
 	var allowVocalsCheckBox:PsychUICheckBox;
 
 	var bpmStepper:PsychUINumericStepper;
@@ -3229,6 +3231,11 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		#end
 
 		objY += 65;
+
+		artistInputText = new PsychUIInputText(objX, objY, 100, 'None', 8);
+		artistInputText.onChange = function(old:String, cur:String) PlayState.SONG.artist = cur;
+
+		objY += 60;
 		//(x:Float = 0, y:Float = 0, step:Float = 1, defValue:Float = 0, min:Float = -999, max:Float = 999, decimals:Int = 0, ?wid:Int = 60, ?isPercent:Bool = false)
 		bpmStepper = new PsychUINumericStepper(objX, objY, 1, 1, 1, 400, 3);
 		bpmStepper.onValueChange = function()
@@ -3250,7 +3257,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		};
 
 		tab_group.add(new FlxText(songNameInputText.x, songNameInputText.y - 15, 80, 'Song Name:'));
+		tab_group.add(new FlxText(artistInputText.x, artistInputText.y - 15, 80, 'Artist:'));
 		tab_group.add(songNameInputText);
+		tab_group.add(artistInputText);
 		tab_group.add(allowVocalsCheckBox);
 		tab_group.add(reloadAudioButton);
 		#if mac
@@ -3286,7 +3295,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			trace('selected $character');
 		});
 		
-		girlfriendDropDown = new PsychUIDropDownMenu(objX, objY + 80, [''], function(id:Int, character:String)
+		girlfriendDropDown = new PsychUIDropDownMenu(objX + 140, objY + 40, [''], function(id:Int, character:String)
 		{
 			PlayState.SONG.gfVersion = character;
 			trace('selected $character');
