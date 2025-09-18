@@ -3170,6 +3170,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 	var songNameInputText:PsychUIInputText;
 	var artistInputText:PsychUIInputText;
+	var charterInputText:PsychUIInputText;
 	var allowVocalsCheckBox:PsychUICheckBox;
 
 	var bpmStepper:PsychUINumericStepper;
@@ -3235,6 +3236,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		artistInputText = new PsychUIInputText(objX, objY, 100, 'None', 8);
 		artistInputText.onChange = function(old:String, cur:String) PlayState.SONG.artist = cur;
 
+		charterInputText = new PsychUIInputText(objX + 140, objY, 100, 'None', 8);
+		charterInputText.onChange = function(old:String, cur:String) PlayState.SONG.charter = cur;
+
 		objY += 60;
 		//(x:Float = 0, y:Float = 0, step:Float = 1, defValue:Float = 0, min:Float = -999, max:Float = 999, decimals:Int = 0, ?wid:Int = 60, ?isPercent:Bool = false)
 		bpmStepper = new PsychUINumericStepper(objX, objY, 1, 1, 1, 400, 3);
@@ -3258,8 +3262,10 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		tab_group.add(new FlxText(songNameInputText.x, songNameInputText.y - 15, 80, 'Song Name:'));
 		tab_group.add(new FlxText(artistInputText.x, artistInputText.y - 15, 80, 'Artist:'));
+		tab_group.add(new FlxText(charterInputText.x, charterInputText.y - 15, 80, 'Charter:'));
 		tab_group.add(songNameInputText);
 		tab_group.add(artistInputText);
+		tab_group.add(charterInputText);
 		tab_group.add(allowVocalsCheckBox);
 		tab_group.add(reloadAudioButton);
 		#if mac

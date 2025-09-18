@@ -15,6 +15,7 @@ typedef SwagSong =
 	var speed:Float;
 	var offset:Float;
 	@:optional var artist:String;
+	@:optional var charter:String;
 
 	var player1:String;
 	var player2:String;
