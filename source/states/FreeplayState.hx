@@ -23,6 +23,8 @@ class FreeplayState extends MusicBeatState
 
 	var selector:FlxText;
 	private static var curSelected:Int = 0;
+	private static var requestedSongName:String = null;
+	private static var requestedSongFolder:String = null;
 	var lerpSelected:Float = 0;
 	var curDifficulty:Int = -1;
 	private static var lastDifficultyName:String = Difficulty.getDefault();
@@ -105,6 +107,20 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 		Mods.loadTopMod();
+
+		if(requestedSongName != null)
+		{
+			for (i in 0...songs.length)
+			{
+				if(songs[i].songName == requestedSongName && (requestedSongFolder == null || requestedSongFolder.length < 1 || songs[i].folder == requestedSongFolder))
+				{
+					curSelected = i;
+					break;
+				}
+			}
+			requestedSongName = null;
+			requestedSongFolder = null;
+		}
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -218,6 +234,12 @@ class FreeplayState extends MusicBeatState
 	public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
 	{
 		songs.push(new SongMetadata(songName, weekNum, songCharacter, color));
+	}
+
+	public static function queueSongSelection(songName:String, ?folder:String = '')
+	{
+		requestedSongName = songName;
+		requestedSongFolder = folder;
 	}
 
 	function weekIsLocked(name:String):Bool

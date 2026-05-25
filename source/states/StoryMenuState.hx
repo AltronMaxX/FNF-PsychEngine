@@ -298,13 +298,30 @@ class StoryMenuState extends MusicBeatState
 
 	function selectWeek()
 	{
-		if (!weekIsLocked(loadedWeeks[curWeek].fileName))
+		var selectedWeekData:WeekData = loadedWeeks[curWeek];
+		if (!weekIsLocked(selectedWeekData.fileName))
 		{
 			// We can't use Dynamic Array .copy() because that crashes HTML5, here's a workaround.
 			var songArray:Array<String> = [];
-			var leWeek:Array<Dynamic> = loadedWeeks[curWeek].songs;
+			var leWeek:Array<Dynamic> = WeekData.getStorySongs(selectedWeekData);
 			for (i in 0...leWeek.length) {
 				songArray.push(leWeek[i][0]);
+			}
+
+			if(songArray.length < 1)
+			{
+				var redirectSong:Dynamic = WeekData.getFreeplayRedirectSong(selectedWeekData);
+				if(redirectSong != null)
+				{
+					persistentUpdate = false;
+					selectedWeek = true;
+					stopspamming = true;
+					FreeplayState.queueSongSelection(redirectSong[0], selectedWeekData.folder);
+					FlxG.sound.play(Paths.sound('confirmMenu'));
+					MusicBeatState.switchState(new FreeplayState());
+				}
+				else FlxG.sound.play(Paths.sound('cancelMenu'));
+				return;
 			}
 
 			// Nevermind that's stupid lmao
@@ -469,8 +486,13 @@ class StoryMenuState extends MusicBeatState
 
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		var stringThing:Array<String> = [];
-		for (i in 0...leWeek.songs.length) {
-			stringThing.push(leWeek.songs[i][0]);
+		for (song in WeekData.getStorySongs(leWeek)) {
+			stringThing.push(song[0]);
+		}
+		if(stringThing.length < 1)
+		{
+			var redirectSong:Dynamic = WeekData.getFreeplayRedirectSong(leWeek);
+			if(redirectSong != null) stringThing.push(redirectSong[0] + ' (Freeplay)');
 		}
 
 		txtTracklist.text = '';

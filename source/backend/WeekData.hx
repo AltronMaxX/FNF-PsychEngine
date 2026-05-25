@@ -17,6 +17,7 @@ typedef WeekFile =
 	var hiddenUntilUnlocked:Bool;
 	var hideStoryMode:Bool;
 	var hideFreeplay:Bool;
+	var redirectToFreeplay:Bool;
 	var difficulties:String;
 }
 
@@ -36,6 +37,7 @@ class WeekData {
 	public var hiddenUntilUnlocked:Bool;
 	public var hideStoryMode:Bool;
 	public var hideFreeplay:Bool;
+	public var redirectToFreeplay:Bool = false;
 	public var difficulties:String;
 
 	public var fileName:String;
@@ -56,6 +58,7 @@ class WeekData {
 			hiddenUntilUnlocked: false,
 			hideStoryMode: false,
 			hideFreeplay: false,
+			redirectToFreeplay: false,
 			difficulties: ''
 		};
 		return weekFile;
@@ -188,6 +191,23 @@ class WeekData {
 	//Used on LoadingState, nothing really too relevant
 	public static function getCurrentWeek():WeekData {
 		return weeksLoaded.get(weeksList[PlayState.storyWeek]);
+	}
+
+	public static function getStorySongs(week:WeekData):Array<Dynamic>
+	{
+		if(week == null || week.songs == null) return [];
+		var output:Array<Dynamic> = [];
+		var songStart:Int = (week.redirectToFreeplay && week.songs.length > 0) ? 1 : 0;
+		for (i in songStart...week.songs.length)
+			output.push(week.songs[i]);
+		return output;
+	}
+
+	public static function getFreeplayRedirectSong(week:WeekData):Dynamic
+	{
+		if(week != null && week.redirectToFreeplay && week.songs != null && week.songs.length > 0)
+			return week.songs[0];
+		return null;
 	}
 
 	public static function setDirectoryFromWeek(?data:WeekData = null) {

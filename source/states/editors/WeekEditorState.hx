@@ -263,9 +263,12 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		}
 
 		var stringThing:Array<String> = [];
-		for (i in 0...weekFile.songs.length) {
+		var songStart:Int = weekFile.redirectToFreeplay == true ? 1 : 0;
+		for (i in songStart...weekFile.songs.length) {
 			stringThing.push(weekFile.songs[i][0]);
 		}
+		if(stringThing.length < 1 && weekFile.redirectToFreeplay == true && weekFile.songs.length > 0)
+			stringThing.push(weekFile.songs[0][0] + ' (Freeplay)');
 
 		txtTracklist.text = '';
 		for (i in 0...stringThing.length)
@@ -596,7 +599,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		var tabs = [
 			{name: 'Freeplay', label: 'Freeplay'},
 		];
-		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 200, ['Freeplay']);
+		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 230, ['Freeplay']);
 		UI_box.x -= UI_box.width + 100;
 		UI_box.y -= UI_box.height + 60;
 		UI_box.scrollFactor.set();
@@ -689,10 +692,18 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		iconInputText = new PsychUIInputText(10, bgColorStepperR.y + 70, 100, '', 8);
 
 		var hideFreeplayCheckbox:PsychUICheckBox = new PsychUICheckBox(10, iconInputText.y + 30, "Hide Week from Freeplay?", 100);
-		hideFreeplayCheckbox.checked = weekFile.hideFreeplay;
+		hideFreeplayCheckbox.checked = weekFile.hideFreeplay == true;
 		hideFreeplayCheckbox.onClick = function()
 		{
 			weekFile.hideFreeplay = hideFreeplayCheckbox.checked;
+			WeekEditorState.unsavedProgress = true;
+		};
+
+		var redirectToFreeplayCheckbox:PsychUICheckBox = new PsychUICheckBox(10, hideFreeplayCheckbox.y + 25, "First song is Freeplay only?", 100);
+		redirectToFreeplayCheckbox.checked = weekFile.redirectToFreeplay == true;
+		redirectToFreeplayCheckbox.onClick = function()
+		{
+			weekFile.redirectToFreeplay = redirectToFreeplayCheckbox.checked;
 			WeekEditorState.unsavedProgress = true;
 		};
 		
@@ -705,6 +716,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		tab_group.add(pasteColor);
 		tab_group.add(iconInputText);
 		tab_group.add(hideFreeplayCheckbox);
+		tab_group.add(redirectToFreeplayCheckbox);
 	}
 
 	function updateBG() {
