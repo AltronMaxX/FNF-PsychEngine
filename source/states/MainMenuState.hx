@@ -14,7 +14,7 @@ enum MainMenuColumn {
 
 class MainMenuState extends MusicBeatState
 {
-	public static var psychEngineVersion:String = '0.1.1 Demo'; // This is also used for Discord RPC
+	public static var psychEngineVersion:String = '0.1.2'; // This is also used for Discord RPC
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
 	var allowMouse:Bool = true; //Turn this off to block mouse movement in menus
@@ -37,6 +37,8 @@ class MainMenuState extends MusicBeatState
 
 	var magenta:FlxSprite;
 	var camFollow:FlxObject;
+
+	var timeTween:Float = 0.95;
 
 	static var showOutdatedWarning:Bool = true;
 	static var finishedFunnyMove:Bool = false;
@@ -85,11 +87,11 @@ class MainMenuState extends MusicBeatState
 
 		for (num => option in optionShit)
 		{
-			var item:FlxSprite = createMenuItem(option, -1000, (num * 140) + 90);
+			var item:FlxSprite = createMenuItem(option, -600, (num * 140) + 90);
 			var scr = (4 - optionShit.length) * 70;
 			item.y += scr; // Offsets for when you have anything other than 4 items
-			FlxTween.tween(item, {x: (FlxG.width - item.width) / 2}, 2, {
-				ease: FlxEase.expoInOut,
+			FlxTween.tween(item, {x: (FlxG.width - item.width) / 2}, timeTween, {
+				ease: FlxEase.quintOut,
 				onComplete: function(flxTween:FlxTween)
 				{
 					if (num == optionShit.length - 1) {
