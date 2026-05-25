@@ -181,6 +181,11 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var isMovingNotes:Bool = false;
 	var movingNotesLastData:Int = 0;
 	var movingNotesLastY:Float = 0;
+
+	// Timeline Window
+	var timeBox:PsychUIBox;
+	var timeBoxPosition:FlxPoint = FlxPoint.get(20, 600);
+	var timelineSlider:PsychUISlider;
 	
 	var vocals:FlxSound = new FlxSound();
 	var opponentVocals:FlxSound = new FlxSound();
@@ -381,6 +386,29 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		infoText.scrollFactor.set();
 		infoBox.getTab('Information').menu.add(infoText);
 		add(infoBox);
+
+		timeBox = new PsychUIBox(timeBoxPosition.x, timeBoxPosition.y, 230, 100, ['Timeline']);
+		timeBox.scrollFactor.set();
+		timeBox.cameras = [camUI];
+
+		timelineSlider = new PsychUISlider(15, 15, function(v:Float) {
+			if(FlxG.sound.music != null) {
+				var newTime:Float = FlxMath.bound(v, 0, FlxG.sound.music.length / 1000 - 0.001);
+				FlxG.sound.music.time = newTime * 1000;
+
+				vocals.time = FlxG.sound.music.time;
+        		opponentVocals.time = FlxG.sound.music.time;
+				loadSection();
+			}
+		}, 0, 0, 0, 200);
+		timelineSlider.min = 0;
+		timelineSlider.max = (FlxG.sound.music != null) ? FlxG.sound.music.length/1000 : 1;
+		timelineSlider.value = (FlxG.sound.music != null) ? FlxG.sound.music.time/1000 : 0;
+		timelineSlider.label = 'Current Time';
+		timelineSlider.minText.visible = false;
+		timelineSlider.maxText.visible = false;
+		timeBox.getTab('Timeline').menu.add(timelineSlider);
+		add(timeBox);
 
 		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Data', 'Events', 'Note', 'Section', 'Song']);
 		mainBox.selectedName = 'Song';
@@ -4564,6 +4592,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		{
 			mainBox.setPosition(mainBoxPosition.x, mainBoxPosition.y);
 			infoBox.setPosition(infoBoxPosition.x, infoBoxPosition.y);
+			timeBox.setPosition(timeBoxPosition.x, timeBoxPosition.y);
 			UIEvent(PsychUIBox.DROP_EVENT, btn); //to force a save
 		}, btnWid);
 		btn.text.alignment = LEFT;
