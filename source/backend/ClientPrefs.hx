@@ -95,6 +95,8 @@ class ClientPrefs {
 		'ui_left'		=> [A, LEFT],
 		'ui_down'		=> [S, DOWN],
 		'ui_right'		=> [D, RIGHT],
+		'ui_prev'		=> [Z],
+		'ui_next'		=> [X],
 		
 		'accept'		=> [SPACE, ENTER],
 		'back'			=> [BACKSPACE, ESCAPE],

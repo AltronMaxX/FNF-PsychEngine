@@ -22,6 +22,8 @@ class Controls
 	public var UI_DOWN_P(get, never):Bool;
 	public var UI_LEFT_P(get, never):Bool;
 	public var UI_RIGHT_P(get, never):Bool;
+	public var UI_PREV_P(get, never):Bool;
+	public var UI_NEXT_P(get, never):Bool;
 	public var NOTE_UP_P(get, never):Bool;
 	public var NOTE_DOWN_P(get, never):Bool;
 	public var NOTE_LEFT_P(get, never):Bool;
@@ -30,6 +32,8 @@ class Controls
 	private function get_UI_DOWN_P() return justPressed('ui_down');
 	private function get_UI_LEFT_P() return justPressed('ui_left');
 	private function get_UI_RIGHT_P() return justPressed('ui_right');
+	private function get_UI_PREV_P() return justPressed('ui_prev');
+	private function get_UI_NEXT_P() return justPressed('ui_next');
 	private function get_NOTE_UP_P() return justPressed('note_up');
 	private function get_NOTE_DOWN_P() return justPressed('note_down');
 	private function get_NOTE_LEFT_P() return justPressed('note_left');
@@ -40,6 +44,8 @@ class Controls
 	public var UI_DOWN(get, never):Bool;
 	public var UI_LEFT(get, never):Bool;
 	public var UI_RIGHT(get, never):Bool;
+	public var UI_PREV(get, never):Bool;
+	public var UI_NEXT(get, never):Bool;
 	public var NOTE_UP(get, never):Bool;
 	public var NOTE_DOWN(get, never):Bool;
 	public var NOTE_LEFT(get, never):Bool;
@@ -48,6 +54,8 @@ class Controls
 	private function get_UI_DOWN() return pressed('ui_down');
 	private function get_UI_LEFT() return pressed('ui_left');
 	private function get_UI_RIGHT() return pressed('ui_right');
+	private function get_UI_PREV() return pressed('ui_prev');
+	private function get_UI_NEXT() return pressed('ui_next');
 	private function get_NOTE_UP() return pressed('note_up');
 	private function get_NOTE_DOWN() return pressed('note_down');
 	private function get_NOTE_LEFT() return pressed('note_left');
@@ -58,6 +66,8 @@ class Controls
 	public var UI_DOWN_R(get, never):Bool;
 	public var UI_LEFT_R(get, never):Bool;
 	public var UI_RIGHT_R(get, never):Bool;
+	public var UI_PREV_R(get, never):Bool;
+	public var UI_NEXT_R(get, never):Bool;
 	public var NOTE_UP_R(get, never):Bool;
 	public var NOTE_DOWN_R(get, never):Bool;
 	public var NOTE_LEFT_R(get, never):Bool;
@@ -66,6 +76,8 @@ class Controls
 	private function get_UI_DOWN_R() return justReleased('ui_down');
 	private function get_UI_LEFT_R() return justReleased('ui_left');
 	private function get_UI_RIGHT_R() return justReleased('ui_right');
+	private function get_UI_PREV_R() return justReleased('ui_prev');
+	private function get_UI_NEXT_R() return justReleased('ui_next');
 	private function get_NOTE_UP_R() return justReleased('note_up');
 	private function get_NOTE_DOWN_R() return justReleased('note_down');
 	private function get_NOTE_LEFT_R() return justReleased('note_left');

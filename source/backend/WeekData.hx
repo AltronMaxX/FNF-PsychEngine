@@ -18,6 +18,7 @@ typedef WeekFile =
 	var hideStoryMode:Bool;
 	var hideFreeplay:Bool;
 	var redirectToFreeplay:Bool;
+	var freeplayCharacter:String;
 	var difficulties:String;
 }
 
@@ -38,6 +39,7 @@ class WeekData {
 	public var hideStoryMode:Bool;
 	public var hideFreeplay:Bool;
 	public var redirectToFreeplay:Bool = false;
+	public var freeplayCharacter:String = 'bf';
 	public var difficulties:String;
 
 	public var fileName:String;
@@ -59,6 +61,7 @@ class WeekData {
 			hideStoryMode: false,
 			hideFreeplay: false,
 			redirectToFreeplay: false,
+			freeplayCharacter: 'bf',
 			difficulties: ''
 		};
 		return weekFile;
@@ -207,6 +210,13 @@ class WeekData {
 	{
 		if(week != null && week.redirectToFreeplay && week.songs != null && week.songs.length > 0)
 			return week.songs[0];
+		return null;
+	}
+
+	public static function getFreeplayCharacter(week:WeekData):String
+	{
+		if(week != null)
+			return week.freeplayCharacter;
 		return null;
 	}
 
