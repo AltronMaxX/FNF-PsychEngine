@@ -31,6 +31,18 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 			'ghostTapping',
 			BOOL);
 		addOption(option);
+
+		var option:Option = new Option('Enable modcharts',
+			"If checked, there will be different effects while playing a song.",
+			'enableModchart',
+			BOOL);
+		addOption(option);
+
+		var option:Option = new Option('Enable mechanics',
+			"If checked, there will be different mechanics while playing a song.",
+			'enableMechanics',
+			BOOL);
+		addOption(option);
 		
 		var option:Option = new Option('Auto Pause',
 			"If checked, the game automatically pauses if the screen isn't on focus.",

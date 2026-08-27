@@ -305,7 +305,10 @@ class StoryMenuState extends MusicBeatState
 			var songArray:Array<String> = [];
 			var leWeek:Array<Dynamic> = WeekData.getStorySongs(selectedWeekData);
 			for (i in 0...leWeek.length) {
-				songArray.push(leWeek[i][0]);
+				final sd:SongData = cast leWeek[i];
+				if (sd.difficulties.split(',').map(function(str:String):String 
+					{return str.trim().toLowerCase();}).contains(Difficulty.defaultList[curDifficulty].toLowerCase())) 
+						songArray.push(sd.songName);
 			}
 
 			if(songArray.length < 1)
@@ -388,12 +391,7 @@ class StoryMenuState extends MusicBeatState
 
 	function changeDifficulty(change:Int = 0):Void
 	{
-		curDifficulty += change;
-
-		if (curDifficulty < 0)
-			curDifficulty = Difficulty.list.length-1;
-		if (curDifficulty >= Difficulty.list.length)
-			curDifficulty = 0;
+		curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.vanillaList.length-1);
 
 		WeekData.setDirectoryFromWeek(loadedWeeks[curWeek]);
 
@@ -459,7 +457,7 @@ class StoryMenuState extends MusicBeatState
 		difficultySelectors.visible = unlocked;
 
 		if(Difficulty.list.contains(Difficulty.getDefault()))
-			curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(Difficulty.getDefault())));
+			curDifficulty = Math.round(Math.max(0, Difficulty.list.indexOf(Difficulty.getDefault())));
 		else
 			curDifficulty = 0;
 
@@ -487,7 +485,11 @@ class StoryMenuState extends MusicBeatState
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		var stringThing:Array<String> = [];
 		for (song in WeekData.getStorySongs(leWeek)) {
-			stringThing.push(song[0]);
+			final sd:SongData = cast song;
+			if (sd.difficulties.split(',').map(function(str:String):String 
+				{return str.trim().toLowerCase();}).contains(Difficulty.defaultList[curDifficulty].toLowerCase())) 
+				stringThing.push(sd.songName);
+			
 		}
 		if(stringThing.length < 1)
 		{

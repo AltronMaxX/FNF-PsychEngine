@@ -22,13 +22,28 @@ typedef WeekFile =
 	var difficulties:String;
 }
 
+typedef SongData = {
+	var difficulties:String;
+	var songName:String;
+	var icon:String;
+	var backgroundColor:Array<Int>;
+	@:optional
+	var unlockedAfter:UnlockData;
+}
+
+typedef UnlockData = {
+	var save:String;
+	var field:String;
+	var showInFreeplay:Bool;
+};
+
 class WeekData {
 	public static var weeksLoaded:Map<String, WeekData> = new Map<String, WeekData>();
 	public static var weeksList:Array<String> = [];
 	public var folder:String = '';
 
 	// JSON variables
-	public var songs:Array<Dynamic>;
+	public var songs:Array<SongData>;
 	public var weekCharacters:Array<String>;
 	public var weekBackground:String;
 	public var weekBefore:String;
@@ -70,11 +85,43 @@ class WeekData {
 	// HELP: Is there any way to convert a WeekFile to WeekData without having to put all variables there manually? I'm kind of a noob in haxe lmao
 	public function new(weekFile:WeekFile, fileName:String) {
 		// here ya go - MiguelItsOut
-		for (field in Reflect.fields(weekFile))
+		for (field in Reflect.fields(weekFile)) {
+			if (field == 'songs')
+				continue;
 			if(Reflect.fields(this).contains(field)) // Reflect.hasField() won't fucking work :/
 				Reflect.setProperty(this, field, Reflect.getProperty(weekFile, field));
+		}
 
 		this.fileName = fileName;
+		this.songs = [];
+
+		//Format old songs to new format
+		for (s in weekFile.songs) {
+			if (!Reflect.hasField(s, "difficulties") && !Reflect.hasField(s, "songName") 
+				&& !Reflect.hasField(s, "icon") && !Reflect.hasField(s, "backgroundColor")) {
+				final diff = this.difficulties != null ? this.difficulties : Difficulty.vanillaList.join(',');
+				var unlockedAfter:UnlockData = null;
+				if (s.length == 4) {
+					unlockedAfter = {
+						save: s[3][0],
+						field: s[3][1],
+						showInFreeplay: s[3][2]
+					};
+				}
+				final song:SongData = {
+					difficulties: diff,
+					songName: s[0],
+					icon: s[1],
+					backgroundColor: s[2],
+					unlockedAfter: unlockedAfter
+				};
+				this.songs.push(song);		
+			} else {
+				final sd:SongData = cast s;
+				this.songs.push(sd); //Song is already new
+			}
+		}
+
 	}
 
 	public static function reloadWeekFiles(isStoryMode:Null<Bool> = false)

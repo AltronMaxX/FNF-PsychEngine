@@ -50,10 +50,17 @@ class PauseSubState extends MusicBeatSubstate
 			menuItemsOG.insert(3, 'Skip Time');
 		menuItems = menuItemsOG;
 
-		for (i in 0...Difficulty.list.length) {
-			var diff:String = Difficulty.getString(i);
-			difficultyChoices.push(diff);
+		final curWeek = WeekData.getCurrentWeek();
+		for (s in curWeek.songs) {
+			final song:SongData = cast s;
+			if (song.songName == PlayState.SONG.song) {
+				final diffs = song.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
+				for (diff in diffs) {
+					difficultyChoices.push(diff);
+				}
+			}
 		}
+
 		difficultyChoices.push('BACK');
 
 		pauseMusic = new FlxSound();
@@ -274,13 +281,13 @@ class PauseSubState extends MusicBeatSubstate
 			if (menuItems == difficultyChoices)
 			{
 				var songLowercase:String = Paths.formatToSongPath(PlayState.SONG.song);
-				var poop:String = Highscore.formatSong(songLowercase, curSelected);
+				var poop:String = Highscore.formatSong(songLowercase, Difficulty.getDiffID(difficultyChoices[curSelected]));
 				try
 				{
 					if(menuItems.length - 1 != curSelected && difficultyChoices.contains(daSelected))
 					{
 						Song.loadFromJson(poop, songLowercase);
-						PlayState.storyDifficulty = curSelected;
+						PlayState.storyDifficulty = Difficulty.getDiffID(difficultyChoices[curSelected]);
 						MusicBeatState.resetState();
 						FlxG.sound.music.volume = 0;
 						PlayState.changedDifficulty = true;

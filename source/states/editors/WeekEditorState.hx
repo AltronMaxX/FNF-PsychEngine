@@ -599,7 +599,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		var tabs = [
 			{name: 'Freeplay', label: 'Freeplay'},
 		];
-		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 230, ['Freeplay']);
+		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 460, ['Freeplay']);
 		UI_box.x -= UI_box.width + 100;
 		UI_box.y -= UI_box.height + 60;
 		UI_box.scrollFactor.set();

@@ -1,11 +1,21 @@
 package backend;
 
+import backend.WeekData.SongData;
+
 class Difficulty
 {
+	public static final vanillaList:Array<String> = [
+		'easy',
+		'normal',
+		'hard'
+	];
+
 	public static final defaultList:Array<String> = [
 		'Easy',
 		'Normal',
-		'Hard'
+		'Hard',
+		'Erect',
+		'Nightmare'
 	];
 	private static final defaultDifficulty:String = 'Normal'; //The chart that has no postfix and starting difficulty on Freeplay/Story Mode
 
@@ -68,5 +78,15 @@ class Difficulty
 	inline public static function getDefault():String
 	{
 		return defaultDifficulty;
+	}
+
+	public static function getDiffID(diff:String):Int {
+		diff = diff.trim().toLowerCase();
+		for (i in 0...defaultList.length) {
+			if (defaultList[i].toLowerCase() == diff) {
+				return i;
+			}
+		}
+		return -1; // this should not happen
 	}
 }

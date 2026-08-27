@@ -1,5 +1,6 @@
 package states;
 
+import flixel.FlxObject;
 import backend.InputFormatter;
 import backend.WeekData;
 import backend.Highscore;
@@ -18,8 +19,18 @@ import openfl.utils.Assets;
 
 import haxe.Json;
 
+using Lambda;
+
 class FreeplayState extends MusicBeatState
 {
+	var songDiffs:Map<String, Array<String>> = [];
+
+	var _songs:Map<String, Array<SongMetadata>> = [
+		'easy' => [], 'normal' => [], 'hard' => [], 'erect' => [], 'nightmare' => []
+	];
+
+	var unavailableDiffs:Array<Int> = [];
+
 	var freeplayCharacters:Array<String> = [];
 	var songs:Array<SongMetadata> = [];
 
@@ -35,6 +46,7 @@ class FreeplayState extends MusicBeatState
 	var scoreBG:FlxSprite;
 	var scoreText:FlxText;
 	var diffText:FlxText;
+	var diffSel:DiffSelector;
 	var lerpScore:Int = 0;
 	var lerpRating:Float = 0;
 	var intendedScore:Int = 0;
@@ -94,8 +106,9 @@ class FreeplayState extends MusicBeatState
 
 			var hasAvailableSong = false;
 			for (song in weekData.songs) {
-				if (song[3] != null) {
-					hasAvailableSong = song[3][2];
+				final sd:SongData = cast song;
+				if (sd.unlockedAfter != null) {
+					hasAvailableSong = sd.unlockedAfter.showInFreeplay;
 				} else 
 					hasAvailableSong = true;
 			}
@@ -111,9 +124,30 @@ class FreeplayState extends MusicBeatState
 			final weekData = WeekData.weeksLoaded.get(WeekData.weeksList[i]);
 
 			if (weekData.freeplayCharacter == freeplayCharacters[curSelectedChar]) {
+
+				for (song in weekData.songs) {
+					final sd:SongData = cast song;
+					var diffs = sd.difficulties.split(',');
+					var parsedDiffs = [];
+					for (diff in diffs) {
+						final d = diff.trim().toLowerCase();
+						parsedDiffs.push(d);
+					}
+					songDiffs.set(sd.songName, parsedDiffs);
+				}
+
 				reloadSongs(i);
 			}
 		}
+
+		for (key in _songs.keys()) {
+			for (diff in Difficulty.defaultList) {
+				if (diff.toLowerCase() == key && _songs[key].length == 0) {
+					unavailableDiffs.push(Difficulty.defaultList.indexOf(diff));
+				}
+			}
+		}
+
 		Mods.loadTopMod();
 
 		if(requestedSongName != null)
@@ -144,7 +178,7 @@ class FreeplayState extends MusicBeatState
 		scoreText = new FlxText(FlxG.width * 0.7, 5, 0, "", 32);
 		scoreText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 
-		scoreBG = new FlxSprite(scoreText.x - 6, 0).makeGraphic(1, 66, 0xFF000000);
+		scoreBG = new FlxSprite(scoreText.x - 6, 0).makeGraphic(1, 110, 0xFF000000);
 		scoreBG.alpha = 0.6;
 		add(scoreBG);
 
@@ -152,12 +186,18 @@ class FreeplayState extends MusicBeatState
 		diffText.font = scoreText.font;
 		add(diffText);
 
+		diffSel = new DiffSelector();
+		diffSel.x = diffText.x + 67;
+		diffSel.y = diffText.y + 26;
+		add(diffSel);
+		diffSel.loadUnavailable(unavailableDiffs);
+
 		add(scoreText);
 
 		if (FlxG.save.data.freeplayBPM == null)
 			FlxG.save.data.freeplayBPM = 100;
 
-		bpmText = new FlxText(diffText.x, diffText.y + 28, 0, "Cur bpm:", 12);
+		bpmText = new FlxText(diffText.x, diffSel.y + 28, 0, "Cur bpm:", 12);
 		bpmText.font = scoreText.font;
 		bpmText.visible = false;
 		add(bpmText);
@@ -250,9 +290,13 @@ class FreeplayState extends MusicBeatState
 		super.closeSubState();
 	}
 
-	public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int, unlockedAfter:Null<Array<Dynamic>>)
+	public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int, unlockedAfter:Null<Array<Dynamic>>, diffs:Array<String>)
 	{
-		songs.push(new SongMetadata(songName, weekNum, songCharacter, color, unlockedAfter));
+		final metadata = new SongMetadata(songName, weekNum, songCharacter, color, unlockedAfter);
+		for (diff in diffs) {
+			_songs[diff].push(metadata);
+		}
+		songs.push(metadata);
 	}
 
 	public static function queueSongSelection(songName:String, ?folder:String = '')
@@ -348,12 +392,12 @@ class FreeplayState extends MusicBeatState
 					FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
 					changeSelection(-shiftMult * FlxG.mouse.wheel, false);
 				}
+			}
 
-				if (controls.UI_PREV_P) {
-					changeCharacter(-1);
-				} else if (controls.UI_NEXT_P) {
-					changeCharacter(1);
-				}
+			if (controls.UI_PREV_P) {
+				changeCharacter(-1);
+			} else if (controls.UI_NEXT_P) {
+				changeCharacter(1);
 			}
 
 			if (controls.UI_LEFT_P)
@@ -395,7 +439,7 @@ class FreeplayState extends MusicBeatState
 		{
 			bpmSettingActive = true;
 			FlxG.mouse.visible = true;
-			scoreBG.makeGraphic(1, 108, 0xFF000000);
+			scoreBG.makeGraphic(1, 152, 0xFF000000);
 			bpmInput.visible = true;
 			bpmText.visible = true;
 		}
@@ -403,7 +447,7 @@ class FreeplayState extends MusicBeatState
 		{
 			bpmSettingActive = false;
 			FlxG.mouse.visible = false;
-			scoreBG.makeGraphic(1, 66, 0xFF000000);
+			scoreBG.makeGraphic(1, 110, 0xFF000000);
 			bpmInput.visible = false;
 			bpmText.visible = false;
 			Conductor.bpm = FlxG.save.data.freeplayBPM = Std.parseFloat(bpmInput.text);
@@ -591,22 +635,60 @@ class FreeplayState extends MusicBeatState
 		if (player.playingMusic)
 			return;
 
-		curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
-		#if !switch
-		intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
-		intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty);
-		#end
+		var futureDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.defaultList.length-1);
+		var diffName = Difficulty.getString(futureDifficulty, false).toLowerCase();
 
-		lastDifficultyName = Difficulty.getString(curDifficulty, false);
-		var displayDiff:String = Difficulty.getString(curDifficulty);
-		if (Difficulty.list.length > 1)
-			diffText.text = '< ' + displayDiff.toUpperCase() + ' >';
-		else
+		//show only this diff songs
+		final sList = _songs[diffName];
+		if (!areInstancesEqual(sList, songs) && !unavailableDiffs.contains(futureDifficulty)) {
+			songs = sList;
+			createSongTexts();
+			changeSelection();
+		}
+		
+		if (!songDiffs[songs[curSelected]?.songName]?.contains(diffName) && _songs[diffName].length > 0) {
+			for (s in songDiffs.keys()) { // try to find song with needed diff
+				if (songDiffs[s].contains(diffName)) { // found first!
+					var songIndex = 0;
+					for (i in songs) {
+						if (i.songName == s) {
+							songIndex = songs.indexOf(i);
+						}
+					}
+
+					curDifficulty = futureDifficulty;
+					lastDifficultyName = Difficulty.getString(curDifficulty, false);
+					curSelected = songIndex;
+					changeSelection();
+				}
+			}
+		} else if (songDiffs[songs[curSelected].songName]?.contains(diffName)) {
+			curDifficulty = futureDifficulty;
+			#if !switch
+			intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
+			intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty);
+			#end
+
+			lastDifficultyName = Difficulty.getString(curDifficulty, false);
+			var displayDiff:String = Difficulty.getString(curDifficulty);
 			diffText.text = displayDiff.toUpperCase();
 
-		positionHighscore();
-		missingText.visible = false;
-		missingTextBG.visible = false;
+			diffSel.changeSelection(curDifficulty);
+
+			positionHighscore();
+			missingText.visible = false;
+			missingTextBG.visible = false;
+		} else {
+			changeDiff(change < 0 ? change - 1 : change + 1); // try to jump to next available
+		}
+	}
+
+	private function areInstancesEqual(arr1:Array<SongMetadata>, arr2:Array<SongMetadata>):Bool {
+		if (arr1.length != arr2.length) return false;
+		for (i in 0...arr1.length) {
+			if (arr1[i] != arr2[i]) return false;
+		}
+		return true;
 	}
 
 	function changeCharacter(change:Int = 0, playSound:Bool = true) {
@@ -616,7 +698,14 @@ class FreeplayState extends MusicBeatState
 		if (freeplayCharacters.length == 1)
 			return;
 
+		songDiffs.clear();
+
+		for (diff in _songs.keys()) {
+			_songs[diff] = [];
+		}
+
 		songs = [];
+		unavailableDiffs = [];
 		curSelectedChar = FlxMath.wrap(curSelectedChar + change, 0, freeplayCharacters.length-1);
 		for (i in 0...WeekData.weeksList.length)
 		{
@@ -624,6 +713,17 @@ class FreeplayState extends MusicBeatState
 			final weekData = WeekData.weeksLoaded.get(WeekData.weeksList[i]);
 
 			if (weekData.freeplayCharacter == freeplayCharacters[curSelectedChar]) {
+				for (song in weekData.songs) {
+					final sd:SongData = cast song;
+					final diffs = sd.difficulties.split(',');
+					var parsedDiffs = [];
+					for (diff in diffs) {
+						final d = diff.trim().toLowerCase();
+						parsedDiffs.push(d);
+					}
+					songDiffs.set(sd.songName, parsedDiffs);
+				}
+
 				reloadSongs(i);
 			}
 		}
@@ -634,6 +734,16 @@ class FreeplayState extends MusicBeatState
 		createSongTexts();
 		curSelected = 0;
 		changeSelection();
+
+		for (key in _songs.keys()) {
+			for (diff in Difficulty.defaultList) {
+				if (diff.toLowerCase() == key && _songs[key].length == 0) {
+					unavailableDiffs.push(Difficulty.defaultList.indexOf(diff));
+				}
+			}
+		}
+		diffSel.loadUnavailable(unavailableDiffs);
+		diffSel.changeSelection(curDifficulty);
 	}
 
 	function changeSelection(change:Int = 0, playSound:Bool = true)
@@ -672,16 +782,24 @@ class FreeplayState extends MusicBeatState
 		Difficulty.loadFromWeek();
 		
 		var savedDiff:String = songs[curSelected].lastDifficulty;
-		var lastDiff:Int = Difficulty.list.indexOf(lastDifficultyName);
-		if(savedDiff != null && !Difficulty.list.contains(savedDiff) && Difficulty.list.contains(savedDiff))
-			curDifficulty = Math.round(Math.max(0, Difficulty.list.indexOf(savedDiff)));
+		var lastDiff:Int = Difficulty.defaultList.indexOf(lastDifficultyName);
+		if(savedDiff != null && !Difficulty.defaultList.contains(savedDiff) && Difficulty.defaultList.contains(savedDiff))
+			curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(savedDiff)));
 		else if(lastDiff > -1)
 			curDifficulty = lastDiff;
-		else if(Difficulty.list.contains(Difficulty.getDefault()))
+		else if(Difficulty.defaultList.contains(Difficulty.getDefault()))
 			curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(Difficulty.getDefault())));
 		else
 			curDifficulty = 0;
 
+		if (!songDiffs[songs[curSelected].songName].contains(Difficulty.getString(curDifficulty).toLowerCase())) {
+			final first = songDiffs[songs[curSelected].songName][0].toLowerCase();
+			for (i in Difficulty.defaultList) {
+				if (i.toLowerCase() == first) {
+					curDifficulty = Difficulty.defaultList.indexOf(i);
+				}
+			}
+		}
 		changeDiff();
 		_updateSongLastDifficulty();
 	}
@@ -696,6 +814,7 @@ class FreeplayState extends MusicBeatState
 		scoreBG.x = FlxG.width - (scoreBG.scale.x / 2);
 		diffText.x = Std.int(scoreBG.x + (scoreBG.width / 2));
 		diffText.x -= diffText.width / 2;
+		diffSel.x = Std.int(scoreBG.x + (scoreBG.width / 2)) - diffSel.width / 2 - 13;
 	}
 
 	var _drawDistance:Int = 4;
@@ -751,30 +870,23 @@ class FreeplayState extends MusicBeatState
 
 	private function reloadSongs(index:Int) {
 		var leWeek:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[index]);
-		var leSongs:Array<String> = [];
-		var leChars:Array<String> = [];
-
-		for (j in 0...leWeek.songs.length)
-		{
-			leSongs.push(leWeek.songs[j][0]);
-			leChars.push(leWeek.songs[j][1]);
-		}
 
 		WeekData.setDirectoryFromWeek(leWeek);
 		for (song in leWeek.songs)
 		{
-			var colors:Array<Int> = song[2];
+			final sd:SongData = cast song;
+			var colors:Array<Int> = sd.backgroundColor;
 			if(colors == null || colors.length < 3)
 			{
 				colors = [146, 113, 253];
 			}
 			var unlockedAfter:Array<Dynamic> = null;
-			if (song.length == 4) {
-				unlockedAfter = song[3];
-				if (!unlockedAfter[2] && checkLock(unlockedAfter[0], unlockedAfter[1]))
+			if (sd.unlockedAfter != null) {
+				if (!sd.unlockedAfter.showInFreeplay && checkLock(sd.unlockedAfter.save, sd.unlockedAfter.field))
 					continue;
 			}
-			addSong(song[0], index, song[1], FlxColor.fromRGB(colors[0], colors[1], colors[2]), unlockedAfter);
+			var preparedDiffs = sd.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
+			addSong(sd.songName, index, sd.icon, FlxColor.fromRGB(colors[0], colors[1], colors[2]), unlockedAfter, preparedDiffs);	
 		}
 	}
 
@@ -788,49 +900,28 @@ class FreeplayState extends MusicBeatState
 		for (i in 0...songs.length)
 		{
 			var songData = songs[i];
-			if (isSongLocked(i) && songData.unlockedAfter.show) {
-				var songText:Alphabet = new Alphabet(90, 320, lockedSongName(songData.songName), true);
-				songText.targetY = i;
-				grpSongs.add(songText);
+			var displayText = isSongLocked(i) && songData.unlockedAfter.show ? lockedSongName(songData.songName) : songData.songName;
+			var songText:Alphabet = new Alphabet(90, 320, displayText, true);
+			songText.targetY = i;
+			grpSongs.add(songText);
 
-				songText.scaleX = Math.min(1, 980 / songText.width);
-				songText.snapToPosition();
+			songText.scaleX = Math.min(1, 980 / songText.width);
+			songText.snapToPosition();
 
-				Mods.currentModDirectory = songData.folder;
-				var icon:HealthIcon = new HealthIcon(songData.songCharacter);
-				icon.sprTracker = songText;
+			Mods.currentModDirectory = songData.folder;
+			var icon:HealthIcon = new HealthIcon(songData.songCharacter);
+			icon.sprTracker = songText;
+			if (isSongLocked(i) && songData.unlockedAfter.show)
 				icon.color = FlxColor.BLACK;
 
-				
-				// too laggy with a lot of songs, so i had to recode the logic for it
-				songText.visible = songText.active = songText.isMenuItem = false;
-				icon.visible = icon.active = false;
-
-				// using a FlxGroup is too much fuss!
-				iconArray.push(icon);
-				add(icon);
-			} else {
-				var songText:Alphabet = new Alphabet(90, 320, songData.songName, true);
-				songText.targetY = i;
-				grpSongs.add(songText);
-
-				songText.scaleX = Math.min(1, 980 / songText.width);
-				songText.snapToPosition();
-
-				Mods.currentModDirectory = songData.folder;
-				var icon:HealthIcon = new HealthIcon(songData.songCharacter);
-				icon.sprTracker = songText;
-
-				
-				// too laggy with a lot of songs, so i had to recode the logic for it
-				songText.visible = songText.active = songText.isMenuItem = false;
-				icon.visible = icon.active = false;
-
-				// using a FlxGroup is too much fuss!
-				iconArray.push(icon);
-				add(icon);
-			}
 			
+			// too laggy with a lot of songs, so i had to recode the logic for it
+			songText.visible = songText.active = songText.isMenuItem = false;
+			icon.visible = icon.active = false;
+
+			// using a FlxGroup is too much fuss!
+			iconArray.push(icon);
+			add(icon);
 		}
 	}
 
@@ -911,4 +1002,93 @@ typedef UnlockedAfter = {
 	save:String,
 	field:String,
 	show:Bool
+}
+
+class DiffSelector extends FlxTypedGroup<FlxObject> {
+	var leftSel:FlxText;
+	var rightSel:FlxText;
+
+	var diffBubles:Array<FlxSprite> = [];
+	var unavailableBubles:Array<Int> = [];
+
+	public function new () {
+		super();
+
+		leftSel = new FlxText();
+		leftSel.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
+		leftSel.text = '<';
+		add(leftSel);
+
+		for (i in 0...Difficulty.defaultList.length) {
+			var sprite = new FlxSprite();
+			sprite.loadGraphic(Paths.image('diff'));
+			sprite.x = leftSel.x + 10 + sprite.width * i;
+			sprite.y = leftSel.y;
+			add(sprite);
+			diffBubles.push(sprite);
+		}
+
+		rightSel = new FlxText(diffBubles[diffBubles.length - 1].x + 10);
+		rightSel.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
+		rightSel.text = '>';
+		add(rightSel);
+	}
+
+	public function changeSelection(index:Int) {
+		for (i in 0...diffBubles.length) {
+			if (unavailableBubles.contains(i))
+				diffBubles[i].loadGraphic(Paths.image('diffUnavailable'));
+			else
+				diffBubles[i].loadGraphic(Paths.image('diff'));
+		}
+		diffBubles[index].loadGraphic(Paths.image('diffSelected'));
+	}
+
+	public function loadUnavailable(unavailable:Array<Int>) { //array of unavailable indexes
+		for (i in 0...diffBubles.length) {
+			diffBubles[i].loadGraphic(Paths.image('diff'));
+		}
+		for (i in unavailable) {
+			diffBubles[i].loadGraphic(Paths.image('diffUnavailable'));
+		}
+		unavailableBubles = unavailable;
+	}
+
+	public var x(never, set):Float;
+	public var y(default, set):Float;
+
+	public var width(get, never):Float;
+
+	function set_x(value:Float):Float {
+		leftSel.x = value;
+		for (i in 0...diffBubles.length) {
+			diffBubles[i].x = leftSel.x + 25 + ((diffBubles[i].width + 5) * i);
+		}
+		rightSel.x = diffBubles[diffBubles.length - 1].x + 20;
+
+		return value;
+	}
+
+	function set_y(value:Float):Float {
+		leftSel.y = value;
+		for (i in 0...diffBubles.length) {
+			diffBubles[i].y = leftSel.y + 7;
+		}
+		rightSel.y = leftSel.y;
+		y = value;
+		
+		return value;
+	}
+
+	function get_width():Float {
+		var ret = 0.0;
+
+		ret += leftSel.width;
+		for (i in 0...diffBubles.length) {
+			ret += diffBubles[i].width;
+		}
+		ret += rightSel.width;
+
+		return ret;
+	}
 }
