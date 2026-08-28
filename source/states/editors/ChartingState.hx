@@ -660,7 +660,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		// SONG TAB
 		songNameInputText.text = PlayState.SONG.song;
 		allowVocalsCheckBox.checked = (PlayState.SONG.needsVoices != false); //If the song for some reason does not have this value, it will be set to true
-		artistInputText.text = PlayState.SONG.artist == null ? "None" : PlayState.SONG.artist;
+		artistInputText.text = PlayState.SONG.artist ?? "None";
+		charterInputText.text = PlayState.SONG.charter ?? "None";
 
 		bpmStepper.value = PlayState.SONG.bpm;
 		scrollSpeedStepper.value = PlayState.SONG.speed;

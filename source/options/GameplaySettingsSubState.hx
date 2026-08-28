@@ -32,13 +32,13 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Enable modcharts',
+		var option:Option = new Option('Modcharts',
 			"If checked, there will be different effects while playing a song.",
 			'enableModchart',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Enable mechanics',
+		var option:Option = new Option('Mechanics',
 			"If checked, there will be different mechanics while playing a song.",
 			'enableMechanics',
 			BOOL);

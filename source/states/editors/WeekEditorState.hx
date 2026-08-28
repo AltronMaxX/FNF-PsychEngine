@@ -210,8 +210,19 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		};
 		hiddenUntilUnlockCheckbox.alpha = 0.4;
 
+
 		weekBeforeInputText = new PsychUIInputText(10, hiddenUntilUnlockCheckbox.y + 55, 100, '', 8);
 		difficultiesInputText = new PsychUIInputText(10, weekBeforeInputText.y + 60, 200, '', 8);
+
+		var redirectToFreeplayCheckbox:PsychUICheckBox = new PsychUICheckBox(10, difficultiesInputText.y + 50, "Redirect to Freeplay", 100);
+		redirectToFreeplayCheckbox.checked = weekFile.redirectToFreeplay == true;
+		redirectToFreeplayCheckbox.onClick = function()
+		{
+			weekFile.redirectToFreeplay = redirectToFreeplayCheckbox.checked;
+			WeekEditorState.unsavedProgress = true;
+		};
+
+		tab_group.add(redirectToFreeplayCheckbox);
 		
 		tab_group.add(new FlxText(weekBeforeInputText.x, weekBeforeInputText.y - 28, 0, 'Week File name of the Week you have\nto finish for Unlocking:'));
 		tab_group.add(new FlxText(difficultiesInputText.x, difficultiesInputText.y - 20, 0, 'Difficulties:'));
@@ -220,13 +231,21 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		tab_group.add(difficultiesInputText);
 		tab_group.add(hiddenUntilUnlockCheckbox);
 		tab_group.add(lockedCheckbox);
+		tab_group.add(redirectToFreeplayCheckbox);
 	}
 
 	//Used on onCreate and when you load a week
 	function reloadAllShit() {
-		var weekString:String = weekFile.songs[0][0];
-		for (i in 1...weekFile.songs.length) {
-			weekString += ', ' + weekFile.songs[i][0];
+		var weekString:String = "";
+		if (!Reflect.hasField(weekFile.songs[0], "songName") && !Reflect.hasField(weekFile.songs[0], "icon") 
+			&& !Reflect.hasField(weekFile.songs[0], "backgroundColor"))
+			weekString = weekFile.songs[0][0];
+			for (i in 1...weekFile.songs.length) {
+			if (!Reflect.hasField(weekFile.songs[i], "songName") && !Reflect.hasField(weekFile.songs[i], "icon") 
+				&& !Reflect.hasField(weekFile.songs[i], "backgroundColor"))
+				weekString += ', ' + weekFile.songs[i][0];
+			else 
+				weekString += ', ' + weekFile.songs[i].songName;
 		}
 		songsInputText.text = weekString;
 		backgroundInputText.text = weekFile.weekBackground;
@@ -265,10 +284,20 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		var stringThing:Array<String> = [];
 		var songStart:Int = weekFile.redirectToFreeplay == true ? 1 : 0;
 		for (i in songStart...weekFile.songs.length) {
-			stringThing.push(weekFile.songs[i][0]);
+			if (!Reflect.hasField(weekFile.songs[i], "songName") && !Reflect.hasField(weekFile.songs[i], "icon") 
+				&& !Reflect.hasField(weekFile.songs[i], "backgroundColor"))
+				stringThing.push(weekFile.songs[i][0]);
+			else
+				stringThing.push(weekFile.songs[i].songName);
 		}
-		if(stringThing.length < 1 && weekFile.redirectToFreeplay == true && weekFile.songs.length > 0)
-			stringThing.push(weekFile.songs[0][0] + ' (Freeplay)');
+		if(stringThing.length < 1 && weekFile.redirectToFreeplay == true && weekFile.songs.length > 0) {
+			if (!Reflect.hasField(weekFile.songs[0], "songName") && !Reflect.hasField(weekFile.songs[0], "icon") 
+				&& !Reflect.hasField(weekFile.songs[0], "backgroundColor"))
+				stringThing.push(weekFile.songs[0][0] + ' (Freeplay)');
+			else
+				stringThing.push(weekFile.songs[0].songName + ' (Freeplay)');
+		}
+			
 
 		txtTracklist.text = '';
 		for (i in 0...stringThing.length)
@@ -368,13 +397,24 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 
 				for (i in 0...splittedText.length) {
 					if(i >= weekFile.songs.length) { //Add new song
-						weekFile.songs.push([splittedText[i], 'face', [146, 113, 253]]);
+						var song:SongData = {
+							songName: splittedText[i],
+							icon: 'face',
+							backgroundColor: [146, 113, 253]
+						};
+						weekFile.songs.push(song);
 					} else { //Edit song
-						weekFile.songs[i][0] = splittedText[i];
-						if(weekFile.songs[i][1] == null || weekFile.songs[i][1]) {
-							weekFile.songs[i][1] = 'face';
-							weekFile.songs[i][2] = [146, 113, 253];
-						}
+						if (!Reflect.hasField(weekFile.songs[i], "songName") && !Reflect.hasField(weekFile.songs[i], "icon") 
+							&& !Reflect.hasField(weekFile.songs[i], "backgroundColor")) {
+								var icon = weekFile.songs[i][1] == null || weekFile.songs[i][1] ? 'face' : weekFile.songs[i][1];
+								var bg = weekFile.songs[i][1] == null || weekFile.songs[i][1] ? [146, 113, 253] : weekFile.songs[i][2];
+								var song:SongData = {
+									songName: splittedText[i],
+									icon: icon,
+									backgroundColor: bg
+								};
+								weekFile.songs[i] = song;
+							}
 					}
 				}
 				updateText();
@@ -497,6 +537,17 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 	}
 
 	public static function saveWeek(weekFile:WeekFile) {
+		for (i in 0...weekFile.songs.length) {
+			if (!Reflect.hasField(weekFile.songs[i], "songName") && !Reflect.hasField(weekFile.songs[i], "icon")  //autoconvert old format to new on save
+				&& !Reflect.hasField(weekFile.songs[i], "backgroundColor")) {
+					var song:SongData = {
+						songName: weekFile.songs[i][0],
+						icon: weekFile.songs[i][1],
+						backgroundColor: weekFile.songs[i][2]
+					};
+					weekFile.songs[i] = song;
+				}
+		}
 		var data:String = haxe.Json.stringify(weekFile, "\t");
 		if (data.length > 0)
 		{
@@ -570,14 +621,27 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 
 		for (i in 0...weekFile.songs.length)
 		{
-			var songText:Alphabet = new Alphabet(90, 320, weekFile.songs[i][0], true);
+			var sText = "";
+			var iconName = "";
+			if (!Reflect.hasField(weekFile.songs[i], "songName") && !Reflect.hasField(weekFile.songs[i], "icon") 
+				&& !Reflect.hasField(weekFile.songs[i], "backgroundColor")) {
+					sText = weekFile.songs[i][0];
+					iconName = weekFile.songs[i][1];
+				}
+				
+			else {
+				sText = weekFile.songs[i].songName;
+				iconName = weekFile.songs[i].icon;
+			}
+				
+			var songText:Alphabet = new Alphabet(90, 320, sText, true);
 			songText.isMenuItem = true;
 			songText.targetY = i;
 			grpSongs.add(songText);
 			songText.scaleX = Math.min(1, 980 / songText.width);
 			songText.snapToPosition();
 
-			var icon:HealthIcon = new HealthIcon(weekFile.songs[i][1]);
+			var icon:HealthIcon = new HealthIcon(iconName);
 			icon.sprTracker = songText;
 
 			// using a FlxGroup is too much fuss!
@@ -599,7 +663,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		var tabs = [
 			{name: 'Freeplay', label: 'Freeplay'},
 		];
-		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 460, ['Freeplay']);
+		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 360, ['Freeplay']);
 		UI_box.x -= UI_box.width + 100;
 		UI_box.y -= UI_box.height + 60;
 		UI_box.scrollFactor.set();
@@ -639,8 +703,158 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 
 		if(id == PsychUIInputText.CHANGE_EVENT && (sender is PsychUIInputText))
 		{
-			weekFile.songs[curSelected][1] = iconInputText.text;
-			iconArray[curSelected].changeIcon(iconInputText.text);
+			if (sender == iconInputText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: iconInputText.text,
+							backgroundColor: weekFile.songs[curSelected][2]
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					weekFile.songs[curSelected].icon = iconInputText.text;
+				}
+				iconArray[curSelected].changeIcon(iconInputText.text);
+			} else if (sender == diffInputText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: weekFile.songs[curSelected][1],
+							backgroundColor: weekFile.songs[curSelected][2],
+							difficulties: diffInputText.text
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					weekFile.songs[curSelected].difficulties = diffInputText.text;
+				}
+			} else if (sender == lockSaveText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: weekFile.songs[curSelected][1],
+							backgroundColor: weekFile.songs[curSelected][2],
+							unlockedAfter: {
+								save: lockSaveText.text,
+								field: null
+							}
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					if (weekFile.songs[curSelected].unlockedAfter != null)
+						weekFile.songs[curSelected].unlockedAfter.save = lockSaveText.text;
+					else {
+						var unlockAfter:UnlockData = {
+							save: lockSaveText.text,
+							field: null
+						};
+						weekFile.songs[curSelected].unlockedAfter = unlockAfter;
+					}
+				}
+			} else if (sender == lockFieldText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: weekFile.songs[curSelected][1],
+							backgroundColor: weekFile.songs[curSelected][2],
+							unlockedAfter: {
+								save: null,
+								field: lockFieldText.text
+							}
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					if (weekFile.songs[curSelected].unlockedAfter != null)
+						weekFile.songs[curSelected].unlockedAfter.field = lockFieldText.text;
+					else {
+						var unlockAfter:UnlockData = {
+							save: null,
+							field: lockFieldText.text
+						};
+						weekFile.songs[curSelected].unlockedAfter = unlockAfter;
+					}
+				}
+			} else if (sender == showFieldText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: weekFile.songs[curSelected][1],
+							backgroundColor: weekFile.songs[curSelected][2],
+							showAfter: {
+								save: showFieldText.text,
+								field: null
+							}
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					if (weekFile.songs[curSelected].showAfter != null)
+						weekFile.songs[curSelected].showAfter.save = showFieldText.text;
+					else {
+						var showAfter:UnlockData = {
+							save: showFieldText.text,
+							field: null
+						};
+						weekFile.songs[curSelected].showAfter = showAfter;
+					}
+				}
+			} else if (sender == showSaveText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: weekFile.songs[curSelected][1],
+							backgroundColor: weekFile.songs[curSelected][2],
+							showAfter: {
+								save: null,
+								field: showSaveText.text
+							}
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					if (weekFile.songs[curSelected].showAfter != null)
+						weekFile.songs[curSelected].showAfter.field= showSaveText.text;
+					else {
+						var showAfter:UnlockData = {
+							save: null,
+							field: showSaveText.text
+						};
+						weekFile.songs[curSelected].showAfter = showAfter;
+					}
+				}
+			} else if (sender == freeplayCharacter) {
+				weekFile.freeplayCharacter = freeplayCharacter.text;
+			} else if (sender == linkedToText) {
+				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+					{
+						var song:SongData = {
+							songName: weekFile.songs[curSelected][0],
+							icon: weekFile.songs[curSelected][1],
+							backgroundColor: weekFile.songs[curSelected][2],
+							linkedTo: linkedToText.text
+						};
+						weekFile.songs[curSelected] = song;
+					}
+				else {
+					weekFile.songs[curSelected].linkedTo = linkedToText.text;
+				}
+			}	
 		}
 		else if(id == PsychUINumericStepper.CHANGE_EVENT && (sender is PsychUINumericStepper))
 		{
@@ -653,12 +867,23 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 	var bgColorStepperG:PsychUINumericStepper;
 	var bgColorStepperB:PsychUINumericStepper;
 	var iconInputText:PsychUIInputText;
+	var diffInputText:PsychUIInputText;
+	var lockSaveText:PsychUIInputText;
+	var lockFieldText:PsychUIInputText;
+	var showSaveText:PsychUIInputText;
+	var showFieldText:PsychUIInputText;
+	var freeplayCharacter:PsychUIInputText;
+	var linkedToText:PsychUIInputText;
 	function addFreeplayUI() {
 		var tab_group = UI_box.getTab('Freeplay').menu;
 
-		bgColorStepperR = new PsychUINumericStepper(10, 40, 20, 255, 0, 255, 0);
-		bgColorStepperG = new PsychUINumericStepper(80, 40, 20, 255, 0, 255, 0);
-		bgColorStepperB = new PsychUINumericStepper(150, 40, 20, 255, 0, 255, 0);
+		diffInputText = new PsychUIInputText(10, 40, 200, '', 8);
+
+		freeplayCharacter = new PsychUIInputText(10, diffInputText.y + 40, 200, '', 8);
+
+		bgColorStepperR = new PsychUINumericStepper(10, freeplayCharacter.y + 40, 20, 255, 0, 255, 0);
+		bgColorStepperG = new PsychUINumericStepper(80, freeplayCharacter.y + 40, 20, 255, 0, 255, 0);
+		bgColorStepperB = new PsychUINumericStepper(150, freeplayCharacter.y + 40, 20, 255, 0, 255, 0);
 
 		var copyColor:PsychUIButton = new PsychUIButton(10, bgColorStepperR.y + 25, "Copy Color", function() Clipboard.text = bg.color.red + ',' + bg.color.green + ',' + bg.color.blue);
 
@@ -699,16 +924,25 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 			WeekEditorState.unsavedProgress = true;
 		};
 
-		var redirectToFreeplayCheckbox:PsychUICheckBox = new PsychUICheckBox(10, hideFreeplayCheckbox.y + 25, "First song is Freeplay only?", 100);
-		redirectToFreeplayCheckbox.checked = weekFile.redirectToFreeplay == true;
-		redirectToFreeplayCheckbox.onClick = function()
-		{
-			weekFile.redirectToFreeplay = redirectToFreeplayCheckbox.checked;
-			WeekEditorState.unsavedProgress = true;
-		};
+		lockSaveText = new PsychUIInputText(10, hideFreeplayCheckbox.y + 40, 100, '', 8);
+		lockFieldText = new PsychUIInputText(lockSaveText.x + lockSaveText.width + 10, hideFreeplayCheckbox.y + 40, 100, '', 8);
+
+		showSaveText = new PsychUIInputText(10, lockSaveText.y + 40, 100, '', 8);
+		showFieldText = new PsychUIInputText(showSaveText.x + showSaveText.width + 10, lockSaveText.y + 40, 100, '', 8);
+
+		linkedToText = new PsychUIInputText(showFieldText.x, bgColorStepperR.y + 70, 100, '', 8);
 		
 		tab_group.add(new FlxText(10, bgColorStepperR.y - 18, 0, 'Selected background Color R/G/B:'));
 		tab_group.add(new FlxText(10, iconInputText.y - 18, 0, 'Selected icon:'));
+		tab_group.add(new FlxText(10, diffInputText.y - 18, 0, 'Difficulties:'));
+		tab_group.add(new FlxText(10, freeplayCharacter.y - 18, 0, 'Freeplay Character:'));
+		tab_group.add(new FlxText(lockSaveText.x, lockSaveText.y - 18, 0, 'Lock Check Save File:'));
+		tab_group.add(new FlxText(lockFieldText.x, lockFieldText.y - 18, 0, 'Lock Check Field:'));
+		tab_group.add(new FlxText(showSaveText.x, showSaveText.y - 18, 0, 'Show Lock Save File:'));
+		tab_group.add(new FlxText(showFieldText.x, showSaveText.y - 18, 0, 'Show Lock Field:'));
+		tab_group.add(new FlxText(linkedToText.x, linkedToText.y - 18, 0, 'Linked To Song:'));
+		tab_group.add(diffInputText);
+		tab_group.add(freeplayCharacter);
 		tab_group.add(bgColorStepperR);
 		tab_group.add(bgColorStepperG);
 		tab_group.add(bgColorStepperB);
@@ -716,14 +950,26 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		tab_group.add(pasteColor);
 		tab_group.add(iconInputText);
 		tab_group.add(hideFreeplayCheckbox);
-		tab_group.add(redirectToFreeplayCheckbox);
+		tab_group.add(lockSaveText);
+		tab_group.add(lockFieldText);
+		tab_group.add(showSaveText);
+		tab_group.add(showFieldText);
+		tab_group.add(linkedToText);
 	}
 
 	function updateBG() {
-		weekFile.songs[curSelected][2][0] = Math.round(bgColorStepperR.value);
-		weekFile.songs[curSelected][2][1] = Math.round(bgColorStepperG.value);
-		weekFile.songs[curSelected][2][2] = Math.round(bgColorStepperB.value);
-		bg.color = FlxColor.fromRGB(weekFile.songs[curSelected][2][0], weekFile.songs[curSelected][2][1], weekFile.songs[curSelected][2][2]);
+		if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor")) {
+				var song:SongData = {
+					icon: weekFile.songs[curSelected][1],
+					songName: weekFile.songs[curSelected][0],
+					backgroundColor: [Math.round(bgColorStepperR.value), Math.round(bgColorStepperG.value), Math.round(bgColorStepperB.value)]
+				};
+				weekFile.songs[curSelected] = song;
+		} else {
+			weekFile.songs[curSelected].backgroundColor = [Math.round(bgColorStepperR.value), Math.round(bgColorStepperG.value), Math.round(bgColorStepperB.value)];
+		}
+		bg.color = FlxColor.fromRGB(weekFile.songs[curSelected].backgroundColor[0], weekFile.songs[curSelected].backgroundColor[1], weekFile.songs[curSelected].backgroundColor[2]);
 	}
 
 	function changeSelection(change:Int = 0) {
@@ -743,13 +989,51 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 			}
 		}
 		//trace(weekFile.songs[curSelected]);
-		iconInputText.text = weekFile.songs[curSelected][1];
+		if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+			iconInputText.text = weekFile.songs[curSelected][1];
+		else 
+			iconInputText.text = weekFile.songs[curSelected].icon;
+		
 
-		var colors = weekFile.songs[curSelected][2];
+		var colors = [];
+		if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+			colors = weekFile.songs[curSelected][2];
+		else 
+			colors = weekFile.songs[curSelected].backgroundColor;
 		bgColorStepperR.value = Math.round(colors[0]);
 		bgColorStepperG.value = Math.round(colors[1]);
 		bgColorStepperB.value = Math.round(colors[2]);
 		updateBG();
+
+		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+			diffInputText.text = weekFile.songs[curSelected].difficulties;
+
+		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
+			linkedToText.text = weekFile.songs[curSelected].linkedTo;
+
+		freeplayCharacter.text = weekFile.freeplayCharacter;
+
+		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor")) {
+			if (weekFile.songs[curSelected].unlockedAfter != null)
+			{
+				lockSaveText.text = weekFile.songs[curSelected].unlockedAfter.save;
+				lockFieldText.text = weekFile.songs[curSelected].unlockedAfter.field;
+			}
+		}
+
+		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
+			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor")) {
+			if (weekFile.songs[curSelected].showAfter != null)
+			{
+				showSaveText.text = weekFile.songs[curSelected].showAfter.save;
+				showFieldText.text = weekFile.songs[curSelected].showAfter.field;
+			}
+		}
 	}
 
 	override function update(elapsed:Float) {

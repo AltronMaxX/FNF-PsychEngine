@@ -303,27 +303,30 @@ class StoryMenuState extends MusicBeatState
 		{
 			// We can't use Dynamic Array .copy() because that crashes HTML5, here's a workaround.
 			var songArray:Array<String> = [];
-			var leWeek:Array<Dynamic> = WeekData.getStorySongs(selectedWeekData);
-			for (i in 0...leWeek.length) {
-				final sd:SongData = cast leWeek[i];
+			var leWeek:Array<SongData> = WeekData.getStorySongs(selectedWeekData);
+			for (sd in leWeek) {
 				if (sd.difficulties.split(',').map(function(str:String):String 
 					{return str.trim().toLowerCase();}).contains(Difficulty.defaultList[curDifficulty].toLowerCase())) 
 						songArray.push(sd.songName);
 			}
 
-			if(songArray.length < 1)
-			{
-				var redirectSong:Dynamic = WeekData.getFreeplayRedirectSong(selectedWeekData);
+			if (selectedWeekData.redirectToFreeplay) {
+				var redirectSong:SongData = WeekData.getFreeplayRedirectSong(selectedWeekData);
 				if(redirectSong != null)
 				{
 					persistentUpdate = false;
 					selectedWeek = true;
 					stopspamming = true;
-					FreeplayState.queueSongSelection(redirectSong[0], selectedWeekData.folder);
+					FreeplayState.queueSongSelection(redirectSong.songName, Difficulty.defaultList[curDifficulty].toLowerCase(), selectedWeekData.folder);
 					FlxG.sound.play(Paths.sound('confirmMenu'));
 					MusicBeatState.switchState(new FreeplayState());
+					return;
 				}
-				else FlxG.sound.play(Paths.sound('cancelMenu'));
+			}
+
+			if(songArray.length < 1)
+			{
+				FlxG.sound.play(Paths.sound('cancelMenu'));
 				return;
 			}
 
@@ -485,10 +488,9 @@ class StoryMenuState extends MusicBeatState
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		var stringThing:Array<String> = [];
 		for (song in WeekData.getStorySongs(leWeek)) {
-			final sd:SongData = cast song;
-			if (sd.difficulties.split(',').map(function(str:String):String 
+			if (song.difficulties.split(',').map(function(str:String):String 
 				{return str.trim().toLowerCase();}).contains(Difficulty.defaultList[curDifficulty].toLowerCase())) 
-				stringThing.push(sd.songName);
+				stringThing.push(song.songName);
 			
 		}
 		if(stringThing.length < 1)

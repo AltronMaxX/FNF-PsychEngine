@@ -23,18 +23,22 @@ typedef WeekFile =
 }
 
 typedef SongData = {
+	@:optional
 	var difficulties:String;
 	var songName:String;
 	var icon:String;
 	var backgroundColor:Array<Int>;
 	@:optional
 	var unlockedAfter:UnlockData;
+	@:optional
+	var showAfter:UnlockData;
+	@:optional
+	var linkedTo:String;
 }
 
 typedef UnlockData = {
 	var save:String;
 	var field:String;
-	var showInFreeplay:Bool;
 };
 
 class WeekData {
@@ -97,15 +101,14 @@ class WeekData {
 
 		//Format old songs to new format
 		for (s in weekFile.songs) {
-			if (!Reflect.hasField(s, "difficulties") && !Reflect.hasField(s, "songName") 
-				&& !Reflect.hasField(s, "icon") && !Reflect.hasField(s, "backgroundColor")) {
+			if (!Reflect.hasField(s, "songName") && !Reflect.hasField(s, "icon") 
+				&& !Reflect.hasField(s, "backgroundColor")) {
 				final diff = this.difficulties != null ? this.difficulties : Difficulty.vanillaList.join(',');
 				var unlockedAfter:UnlockData = null;
 				if (s.length == 4) {
 					unlockedAfter = {
 						save: s[3][0],
-						field: s[3][1],
-						showInFreeplay: s[3][2]
+						field: s[3][1]
 					};
 				}
 				final song:SongData = {
@@ -118,6 +121,8 @@ class WeekData {
 				this.songs.push(song);		
 			} else {
 				final sd:SongData = cast s;
+				if (sd.difficulties == null)
+					sd.difficulties = Difficulty.vanillaList.join(',');
 				this.songs.push(sd); //Song is already new
 			}
 		}
@@ -243,27 +248,16 @@ class WeekData {
 		return weeksLoaded.get(weeksList[PlayState.storyWeek]);
 	}
 
-	public static function getStorySongs(week:WeekData):Array<Dynamic>
+	public static function getStorySongs(week:WeekData):Array<SongData>
 	{
 		if(week == null || week.songs == null) return [];
-		var output:Array<Dynamic> = [];
-		var songStart:Int = (week.redirectToFreeplay && week.songs.length > 0) ? 1 : 0;
-		for (i in songStart...week.songs.length)
-			output.push(week.songs[i]);
-		return output;
+		return week.songs;
 	}
 
 	public static function getFreeplayRedirectSong(week:WeekData):Dynamic
 	{
 		if(week != null && week.redirectToFreeplay && week.songs != null && week.songs.length > 0)
 			return week.songs[0];
-		return null;
-	}
-
-	public static function getFreeplayCharacter(week:WeekData):String
-	{
-		if(week != null)
-			return week.freeplayCharacter;
 		return null;
 	}
 

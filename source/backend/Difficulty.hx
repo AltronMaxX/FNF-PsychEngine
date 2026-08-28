@@ -5,9 +5,9 @@ import backend.WeekData.SongData;
 class Difficulty
 {
 	public static final vanillaList:Array<String> = [
-		'easy',
-		'normal',
-		'hard'
+		'Easy',
+		'Normal',
+		'Hard'
 	];
 
 	public static final defaultList:Array<String> = [
@@ -36,11 +36,12 @@ class Difficulty
 	inline public static function loadFromWeek(week:WeekData = null)
 	{
 		if(week == null) week = WeekData.getCurrentWeek();
+		var diffs:Array<String> = [];
 
 		var diffStr:String = week.difficulties;
 		if(diffStr != null && diffStr.length > 0)
 		{
-			var diffs:Array<String> = diffStr.trim().split(',');
+			diffs = diffStr.trim().split(',');
 			var i:Int = diffs.length - 1;
 			while (i > 0)
 			{
@@ -51,16 +52,42 @@ class Difficulty
 				}
 				--i;
 			}
-
-			if(diffs.length > 0 && diffs[0].length > 0)
-				list = diffs;
 		}
-		else resetList();
+
+		for (song in week.songs) { //parse from songs
+			var diffStr:String = song.difficulties;
+			if(diffStr != null && diffStr.length > 0)
+			{
+				var _diffs = diffStr.trim().split(',');
+				var i:Int = _diffs.length - 1;
+				while (i > 0)
+				{
+					if(_diffs[i] != null)
+					{
+						_diffs[i] = _diffs[i].trim();
+						if(_diffs[i].length < 1) _diffs.remove(_diffs[i]);
+					}
+					--i;
+				}
+
+				for (diff in _diffs) {
+					if (!diffs.contains(diff)) {
+						diffs.push(diff);
+					}
+				}
+			}
+		}
+
+		if(diffs.length > 0 && diffs[0].length > 0)
+			list = diffs;
+
+		if (list == [])
+			resetList();
 	}
 
 	inline public static function resetList()
 	{
-		list = defaultList.copy();
+		list = vanillaList.copy();
 	}
 
 	inline public static function copyFrom(diffs:Array<String>)
