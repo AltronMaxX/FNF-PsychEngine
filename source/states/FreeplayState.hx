@@ -118,7 +118,7 @@ class FreeplayState extends MusicBeatState
 					loadSave(sd.unlockedAfter.save);
 					loadSave(sd.showAfter.save);
 
-					hasAvailableSong = shouldShowLockedSong(sd);
+					hasAvailableSong = shouldShowLockedSong(sd.showAfter);
 				} else 
 					hasAvailableSong = true;
 			}
@@ -643,8 +643,9 @@ class FreeplayState extends MusicBeatState
 
 		var futureDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.defaultList.length-1);
 
-		if (unavailableDiffs.contains(futureDifficulty)) {
-			futureDifficulty = FlxMath.wrap(curDifficulty + (change < 0 ? change - 1 : change + 1), 0, Difficulty.defaultList.length-1);
+		while (unavailableDiffs.contains(futureDifficulty)) {
+			change = change < 0 ? change - 1 : change + 1;
+			futureDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.defaultList.length-1);
 		}
 
 		var diffName = Difficulty.getString(futureDifficulty, false).toLowerCase();
@@ -667,12 +668,11 @@ class FreeplayState extends MusicBeatState
 					}
 				}
 			}
-				
 			changeSelection(0, true, false);
 		}
 
 		curDifficulty = futureDifficulty;
-		
+
 		#if !switch
 		intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
 		intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty);
@@ -718,13 +718,6 @@ class FreeplayState extends MusicBeatState
 			if (weekData.freeplayCharacter == freeplayCharacters[curSelectedChar]) 
 				reloadSongs(i);
 		}
-		selectedCharIcon.changeIcon(freeplayCharacters[curSelectedChar]);
-		selectedCharIcon.x = FlxG.width - 90 - selectedCharIcon.width;
-		selectedCharIcon.y = FlxG.height - 26 - selectedCharIcon.height;
-		selectedCharIcon.flipX = true;
-		createSongTexts();
-		curSelected = 0;
-		changeSelection();
 
 		for (key in _songs.keys()) {
 			for (diff in Difficulty.defaultList) {
@@ -733,6 +726,25 @@ class FreeplayState extends MusicBeatState
 				}
 			}
 		}
+
+		if (_songs['normal'].length > 0)
+			curDifficulty = 1;
+		else {
+			for (key in _songs.keys()) {
+				if (_songs[key].length > 0)
+					curDifficulty = Difficulty.defaultList.map(function (s:String):String {return s.toLowerCase();}).indexOf(key);
+			}
+		}
+
+		selectedCharIcon.changeIcon(freeplayCharacters[curSelectedChar]);
+		selectedCharIcon.x = FlxG.width - 90 - selectedCharIcon.width;
+		selectedCharIcon.y = FlxG.height - 26 - selectedCharIcon.height;
+		selectedCharIcon.flipX = true;
+		createSongTexts();
+
+		curSelected = 0;
+		changeSelection();
+
 		diffSel.loadUnavailable(unavailableDiffs);
 		diffSel.changeSelection(curDifficulty);
 	}
@@ -866,7 +878,7 @@ class FreeplayState extends MusicBeatState
 				colors = [146, 113, 253];
 			}
 			if (sd.unlockedAfter != null) {
-				if (!shouldShowLockedSong(sd) && checkLock(sd.unlockedAfter.save, sd.unlockedAfter.field))
+				if (!shouldShowLockedSong(sd.showAfter) && checkLock(sd.unlockedAfter.save, sd.unlockedAfter.field))
 					continue;
 			}
 			var preparedDiffs = sd.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
@@ -884,7 +896,8 @@ class FreeplayState extends MusicBeatState
 		for (i in 0...songs.length)
 		{
 			var songData = songs[i];
-			var songText:Alphabet = new Alphabet(90, 320, songData.songName, true);
+			var displayText = isSongLocked(i) && shouldShowLockedSong(songData.showAfter) ? lockedSongName(songData.songName) : songData.songName;
+			var songText:Alphabet = new Alphabet(90, 320, displayText, true);
 			songText.targetY = i;
 			grpSongs.add(songText);
 
@@ -894,6 +907,8 @@ class FreeplayState extends MusicBeatState
 			Mods.currentModDirectory = songData.folder;
 			var icon:HealthIcon = new HealthIcon(songData.songCharacter);
 			icon.sprTracker = songText;
+			if (isSongLocked(i) && shouldShowLockedSong(songData.showAfter))
+				icon.color = FlxColor.BLACK;
 
 			
 			// too laggy with a lot of songs, so i had to recode the logic for it
@@ -906,11 +921,22 @@ class FreeplayState extends MusicBeatState
 		}
 	}
 
-	private function shouldShowLockedSong(songData:SongData):Bool
+	private function lockedSongName(name:String): String {
+		var ret = "";
+		for (i in 0...name.length) {
+			if (name.charAt(i) == " ")
+				ret += " ";
+			else
+				ret += "?";
+		}
+		return ret;
+	}
+
+	private function shouldShowLockedSong(showAfter:UnlockData):Bool
 	{
-		if (songData.showAfter != null)
-			if (songData.showAfter.field != null && songData.showAfter.save != null)
-				return !checkLock(songData.showAfter.save, songData.showAfter.field);
+		if (showAfter != null)
+			if (showAfter.field != null && showAfter.save != null)
+				return !checkLock(showAfter.save, showAfter.field);
 		return false;
 	}
 
