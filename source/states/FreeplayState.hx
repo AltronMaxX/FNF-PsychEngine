@@ -12,6 +12,7 @@ import objects.MusicPlayer;
 
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
+import states.TitleState;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
@@ -79,6 +80,8 @@ class FreeplayState extends MusicBeatState
 	var bpmText:FlxText;
 
 	var selectedCharIcon:HealthIcon;
+	var bpmTitle:Float;
+	var bpmSong:Float;
 
 	override function create()
 	{
@@ -197,8 +200,7 @@ class FreeplayState extends MusicBeatState
 
 		add(scoreText);
 
-		if (FlxG.save.data.freeplayBPM == null)
-			FlxG.save.data.freeplayBPM = 100;
+		bpmTitle = TitleState.musicBPM;
 
 		bpmText = new FlxText(diffText.x, diffSel.y + 28, 0, "Cur bpm:", 12);
 		bpmText.font = scoreText.font;
@@ -207,9 +209,9 @@ class FreeplayState extends MusicBeatState
 
 		bpmInput = new flixel.addons.ui.FlxInputText(bpmText.x, bpmText.y + 18, 140, "", 12);
 		bpmInput.font = bpmInput.font;
-		bpmInput.text = FlxG.save.data.freeplayBPM;
+		bpmInput.text = Std.string(bpmTitle);
 		bpmInput.visible = false;
-		Conductor.bpm = FlxG.save.data.freeplayBPM;
+		Conductor.bpm = bpmTitle;
 		add(bpmInput);
 
 		missingTextBG = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
@@ -317,12 +319,30 @@ class FreeplayState extends MusicBeatState
 		return (!leWeek.startUnlocked && leWeek.weekBefore.length > 0 && (!StoryMenuState.weekCompleted.exists(leWeek.weekBefore) || !StoryMenuState.weekCompleted.get(leWeek.weekBefore)));
 	}
 
+	function resetMenuBeatTiming()
+	{
+		bpmSong = 0;
+		Conductor.bpmChangeMap = [];
+		Conductor.bpm = bpmTitle;
+	}
+
+	function applySongBeatTiming(songData:SwagSong)
+	{
+		if(songData == null) return;
+
+		Conductor.mapBPMChanges(songData);
+		bpmSong = songData.bpm;
+		songs[curSelected].bpm = bpmSong;
+		Conductor.bpm = bpmSong;
+	}
+
 	var instPlaying:Int = -1;
 	public static var vocals:FlxSound = null;
 	public static var opponentVocals:FlxSound = null;
 	var holdTime:Float = 0;
 
-	var bpmSettingActive = false;
+	var bpmSettingEnabled:Bool = false;
+	var bpmSettingActive:Bool = false;
 	var stopMusicPlay:Bool = false;
 	override function update(elapsed:Float)
 	{
@@ -425,6 +445,8 @@ class FreeplayState extends MusicBeatState
 				FlxG.sound.music.stop();
 				destroyFreeplayVocals();
 				FlxG.sound.music.volume = 0;
+				resetMenuBeatTiming();
+				PlayState.SONG = null;
 				instPlaying = -1;
 
 				player.playingMusic = false;
@@ -441,7 +463,7 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		if (controls.justPressed('debug_1') && !bpmSettingActive)
+		if (controls.justPressed('debug_1') && !bpmSettingActive && bpmSettingEnabled)
 		{
 			bpmSettingActive = true;
 			FlxG.mouse.visible = true;
@@ -449,14 +471,16 @@ class FreeplayState extends MusicBeatState
 			bpmInput.visible = true;
 			bpmText.visible = true;
 		}
-		else if (controls.justPressed('debug_1') && bpmSettingActive)
+		else if (controls.justPressed('debug_1') && bpmSettingActive && bpmSettingEnabled)
 		{
 			bpmSettingActive = false;
 			FlxG.mouse.visible = false;
 			scoreBG.makeGraphic(1, 110, 0xFF000000);
 			bpmInput.visible = false;
 			bpmText.visible = false;
-			Conductor.bpm = FlxG.save.data.freeplayBPM = Std.parseFloat(bpmInput.text);
+			bpmTitle = Std.parseFloat(bpmInput.text);
+			if(!player.playingMusic)
+				Conductor.bpm = bpmTitle;
 		}
 
 		if(FlxG.keys.justPressed.CONTROL && !player.playingMusic)
@@ -474,6 +498,8 @@ class FreeplayState extends MusicBeatState
 				Mods.currentModDirectory = songs[curSelected].folder;
 				var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
 				Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
+				applySongBeatTiming(PlayState.SONG);
+
 				if (PlayState.SONG.needsVoices)
 				{
 					vocals = new FlxSound();
@@ -843,6 +869,9 @@ class FreeplayState extends MusicBeatState
 
 	override function destroy():Void
 	{
+		if(!stopMusicPlay)
+			resetMenuBeatTiming();
+
 		super.destroy();
 
 		FlxG.autoPause = ClientPrefs.data.autoPause;
@@ -984,6 +1013,7 @@ class SongMetadata
 	public var unlockedAfter:UnlockData = null;
 	public var showAfter:UnlockData = null;
 	public var linkedTo:String = "";
+	public var bpm:Float = 0;
 
 	public function new(song:String, week:Int, songCharacter:String, color:Int, unlockedAfter:Null<UnlockData>, showAfter:Null<UnlockData>, ?linkedTo:String = "")
 	{

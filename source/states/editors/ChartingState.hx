@@ -186,7 +186,24 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var timeBox:PsychUIBox;
 	var timeBoxPosition:FlxPoint = FlxPoint.get(20, 600);
 	var timelineSlider:PsychUISlider;
-	
+
+	var boyfriendBox:PsychUIBox;
+	var opponentBox:PsychUIBox;
+	var boyfriendBoxPosition:FlxPoint = FlxPoint.get(20, 40);
+	var opponentBoxPosition:FlxPoint = FlxPoint.get(20, 200);
+
+	var boyfriendDisplay:FlxSprite;
+	var opponentDisplay:FlxSprite;
+	var boyfriendDisplayX:Float = 0;
+	var boyfriendDisplayY:Float = 0;
+	var opponentDisplayX:Float = 0;
+	var opponentDisplayY:Float = 0;
+	var boyfriendHoldTimer:Float = 0;
+	var opponentHoldTimer:Float = 0;
+	var boyfriendLastAnim:String = 'idle';
+	var opponentLastAnim:String = 'idle';
+	var wasMusicPlaying:Bool = false;
+
 	var vocals:FlxSound = new FlxSound();
 	var opponentVocals:FlxSound = new FlxSound();
 
@@ -439,6 +456,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		upperBox.bg.visible = false;
 		add(upperBox);
 
+		createCharacterBoxes();
+
 		outputTxt = new FlxText(25, FlxG.height - 50, FlxG.width - 50, '', 20);
 		outputTxt.borderSize = 2;
 		outputTxt.borderStyle = OUTLINE_FAST;
@@ -684,6 +703,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		noteTextureInputText.text = PlayState.SONG.arrowSkin;
 		noteSplashesInputText.text = PlayState.SONG.splashSkin;
+		updateCharacterDisplays();
 	}
 	
 	var noteSelectionSine:Float = 0;
@@ -987,6 +1007,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			if(!songFinished) Conductor.songPosition = FlxMath.bound(FlxG.sound.music.time + Conductor.offset, 0, FlxG.sound.music.length - 1);
 			updateScrollY();
 		}
+
+		updateCharacterAnimations(elapsed);
 
 		super.update(elapsed);
 		
@@ -1638,6 +1660,317 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			dataCopy[1] = eventGrp;
 		}
 		return dataCopy;
+	}
+
+	function updateCharacterAnimations(elapsed:Float)
+	{
+		if (FlxG.sound.music != null)
+		{
+			var isPlaying = FlxG.sound.music.playing;
+
+			if (wasMusicPlaying && !isPlaying)
+			{
+				if (boyfriendDisplay != null)
+				{
+					boyfriendLastAnim = getPreviewAnimName(boyfriendDisplay);
+					playPreviewIdle(boyfriendDisplay);
+				}
+				if (opponentDisplay != null)
+				{
+					opponentLastAnim = getPreviewAnimName(opponentDisplay);
+					playPreviewIdle(opponentDisplay);
+				}
+			}
+			else if (!wasMusicPlaying && isPlaying)
+			{
+				if (boyfriendDisplay != null && boyfriendLastAnim != 'idle')
+				{
+					playPreviewAnimationByName(boyfriendDisplay, boyfriendLastAnim);
+				}
+				if (opponentDisplay != null && opponentLastAnim != 'idle')
+				{
+					playPreviewAnimationByName(opponentDisplay, opponentLastAnim);
+				}
+			}
+
+			wasMusicPlaying = isPlaying;
+		}
+
+		if ((boyfriendDisplay != null || opponentDisplay != null) && FlxG.sound.music != null && FlxG.sound.music.playing)
+		{
+			var toleranceTime = 50; // 50ms tolerance for note hits
+
+			for (note in notes)
+				if (note == null) continue;
+
+				var noteData = note.songData[1];
+				var mustPress = note.mustPress;
+
+				if (Math.abs(note.strumTime - currentTime) <= toleranceTime)
+				{
+					if (mustPress && boyfriendDisplay != null)
+					{
+						triggerCharacterAnimation(boyfriendDisplay, noteData);
+					}
+					else if (!mustPress && opponentDisplay != null)
+					{
+						triggerCharacterAnimation(opponentDisplay, noteData);
+					}
+				}
+				else if (note.sustainLength > 0 && currentTime >= note.strumTime && currentTime <= note.strumTime + note.sustainLength)
+				{
+					if (mustPress && boyfriendDisplay != null)
+					{
+						if (boyfriendHoldTimer < 0.1)
+							boyfriendHoldTimer = 0.1;
+					}
+					else if (!mustPress && opponentDisplay != null)
+					{
+						if (opponentHoldTimer < 0.1)
+							opponentHoldTimer = 0.1;
+					}
+				}
+			}
+
+			if (boyfriendDisplay != null)
+			{
+				boyfriendDisplay.update(elapsed);
+
+				if (boyfriendHoldTimer > 0)
+				{
+					boyfriendHoldTimer -= elapsed;
+					if (boyfriendHoldTimer <= 0)
+					{
+						boyfriendHoldTimer = 0;
+						boyfriendLastAnim = 'idle';
+						playPreviewIdle(boyfriendDisplay);
+					}
+				}
+			}
+			if (opponentDisplay != null)
+			{
+				opponentDisplay.update(elapsed);
+
+				if (opponentHoldTimer > 0)
+				{
+					opponentHoldTimer -= elapsed;
+					if (opponentHoldTimer <= 0)
+					{
+						opponentHoldTimer = 0;
+						opponentLastAnim = 'idle';
+						playPreviewIdle(opponentDisplay);
+					}
+				}
+			}
+		}
+	}
+
+	function getPreviewAnimName(character:FlxSprite):String
+	{
+		if(character == null) return 'idle';
+		if(Std.isOfType(character, Character))
+		{
+			var curAnim:String = cast(character, Character).getAnimationName();
+			return curAnim != null ? curAnim : 'idle';
+		}
+		if(character.animation != null && character.animation.curAnim != null)
+			return character.animation.curAnim.name;
+		return 'idle';
+	}
+
+	function playPreviewIdle(character:FlxSprite)
+	{
+		if(character == null) return;
+		if(Std.isOfType(character, Character))
+		{
+			cast(character, Character).dance();
+			return;
+		}
+		if(character.animation != null)
+			character.animation.play('idle');
+	}
+
+	function playPreviewAnimationByName(character:FlxSprite, animName:String)
+	{
+		if(character == null || animName == null || animName.length < 1) return;
+		if(Std.isOfType(character, Character))
+		{
+			var char:Character = cast character;
+			if(char.hasAnimation(animName))
+				char.playAnim(animName, true, false, false);
+			else
+				char.dance();
+			return;
+		}
+		if(character.animation != null)
+			character.animation.play(animName, true);
+	}
+
+	function triggerCharacterAnimation(character:FlxSprite, noteData:Int)
+	{
+		if (character == null) return;
+
+		var animName:String = null;
+		if(Std.isOfType(character, Character))
+		{
+			var char:Character = cast character;
+			switch (noteData)
+			{
+				case 0, 4: if(char.hasAnimation('singLEFT')) animName = 'singLEFT';
+				case 1, 5: if(char.hasAnimation('singDOWN')) animName = 'singDOWN';
+				case 2, 6: if(char.hasAnimation('singUP')) animName = 'singUP';
+				case 3, 7: if(char.hasAnimation('singRIGHT')) animName = 'singRIGHT';
+			}
+		}
+		else
+		{
+			switch (noteData)
+			{
+				case 0, 4: animName = 'left';
+				case 1, 5: animName = 'down';
+				case 2, 6: animName = 'up';
+				case 3, 7: animName = 'right';
+			}
+		}
+
+		if (animName != null && animName.length > 0)
+		{
+			playPreviewAnimationByName(character, animName);
+
+			if (character == boyfriendDisplay)
+			{
+				boyfriendLastAnim = animName;
+				boyfriendHoldTimer = 0.5;
+			}
+			else if (character == opponentDisplay)
+			{
+				opponentLastAnim = animName;
+				opponentHoldTimer = 0.5;
+			}
+		}
+	}
+
+	function createCharacterBoxes()
+	{
+		boyfriendBox = new PsychUIBox(boyfriendBoxPosition.x, boyfriendBoxPosition.y, 160, 180, ['Boyfriend']);
+		boyfriendBox.scrollFactor.set();
+		boyfriendBox.cameras = [camUI];
+		boyfriendBox.canMinimize = false;
+		add(boyfriendBox);
+
+		opponentBox = new PsychUIBox(opponentBoxPosition.x, opponentBoxPosition.y, 160, 180, ['Opponent']);
+		opponentBox.scrollFactor.set();
+		opponentBox.cameras = [camUI];
+		opponentBox.canMinimize = false;
+		add(opponentBox);
+
+		createCharacterDisplays();
+	}
+
+	function createCharacterDisplays()
+	{
+		updateCharacterDisplays();
+	}
+
+	function createPreviewAtlasDisplay(atlasKey:String):FlxSprite
+	{
+		var hasAtlas:Bool = Paths.fileExists('images/$atlasKey.png', IMAGE, false) && Paths.fileExists('images/$atlasKey.xml', TEXT, false);
+		if(!hasAtlas) return null;
+
+		var display = new FlxSprite();
+		display.frames = Paths.getSparrowAtlas(atlasKey);
+		display.animation.addByPrefix('idle', 'idle', 24, false);
+		display.animation.addByPrefix('left', 'left', 24, false);
+		display.animation.addByPrefix('down', 'down', 24, false);
+		display.animation.addByPrefix('up', 'up', 24, false);
+		display.animation.addByPrefix('right', 'right', 24, false);
+		display.animation.play('idle');
+		return display;
+	}
+
+	function createPreviewCharacterDisplay(characterName:String, isPlayer:Bool):FlxSprite
+	{
+		var display:Character = new Character(0, 0, characterName, isPlayer);
+		display.dance();
+		return display;
+	}
+
+	function setupCharacterDisplay(display:FlxSprite, maxSize:Float, yOffset:Float)
+	{
+		display.cameras = [camUI];
+		display.scrollFactor.set();
+		display.antialiasing = ClientPrefs.data.antialiasing;
+
+		var scale:Float = Math.min(maxSize / display.width, maxSize / display.height);
+		display.scale.set(display.scale.x * scale, display.scale.y * scale);
+		display.updateHitbox();
+
+		var displayX:Float = (160 - display.width) / 2;
+		var displayY:Float = (180 - display.height) / 2;
+		display.x = displayX;
+		display.y = displayY + yOffset;
+	}
+
+	function updateCharacterDisplays()
+	{
+		if (PlayState.SONG == null || PlayState.SONG.song == 'test')
+		{
+			trace('Cannot update character displays');
+			boyfriendBox.visible = false;
+			opponentBox.visible = false;
+			return;
+		}
+
+		if (boyfriendDisplay != null)
+		{
+			boyfriendBox.remove(boyfriendDisplay);
+			boyfriendDisplay.destroy();
+			boyfriendDisplay = null;
+		}
+		if (opponentDisplay != null)
+		{
+			opponentBox.remove(opponentDisplay);
+			opponentDisplay.destroy();
+			opponentDisplay = null;
+		}
+
+		try
+		{
+			boyfriendDisplay = createPreviewAtlasDisplay('characters/ChartE_Player');
+			if(boyfriendDisplay == null)
+				boyfriendDisplay = createPreviewCharacterDisplay(PlayState.SONG.player1, true);
+
+			setupCharacterDisplay(boyfriendDisplay, 110, 20);
+			boyfriendDisplayX = boyfriendDisplay.x;
+			boyfriendDisplayY = boyfriendDisplay.y;
+
+			boyfriendBox.add(boyfriendDisplay);
+			boyfriendBox.visible = true;
+		}
+		catch (e:Dynamic)
+		{
+			trace('Failed to load boyfriend display: $e');
+			boyfriendBox.visible = false;
+			boyfriendDisplay = null;
+		}
+
+		try
+		{
+			opponentDisplay = createPreviewCharacterDisplay(PlayState.SONG.player2, false);
+
+			setupCharacterDisplay(opponentDisplay, 125, 10);
+			opponentDisplayX = opponentDisplay.x;
+			opponentDisplayY = opponentDisplay.y;
+
+			opponentBox.add(opponentDisplay);
+			opponentBox.visible = true;
+		}
+		catch (e:Dynamic)
+		{
+			trace('Failed to load opponent display: $e');
+			opponentBox.visible = false;
+			opponentDisplay = null;
+		}
 	}
 
 	function updateScrollY()
@@ -3312,6 +3645,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			updateJsonData();
 			updateHeads(true);
 			loadMusic();
+			updateCharacterDisplays();
 			trace('selected $character');
 		});
 		stageDropDown = new PsychUIDropDownMenu(objX + 140, objY, [''], function(id:Int, stage:String)
@@ -3327,6 +3661,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			updateJsonData();
 			updateHeads(true);
 			loadMusic();
+			updateCharacterDisplays();
 			trace('selected $character');
 		});
 		

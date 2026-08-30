@@ -375,7 +375,7 @@ class Character extends FlxSprite
 		}
 	}
 
-	public function playAnim(AnimName:String, Force:Bool = false, Reversed:Bool = false, Frame:Int = 0):Void
+	public function playAnim(AnimName:String, Force:Bool = false, Reversed:Bool = false, OffsetEnabled:Bool = true, Frame:Int = 0):Void
 	{
 		specialAnim = false;
 		if(!isAnimateAtlas)
@@ -389,7 +389,7 @@ class Character extends FlxSprite
 		}
 		_lastPlayedAnimation = AnimName;
 
-		if (hasAnimation(AnimName))
+		if (hasAnimation(AnimName) && OffsetEnabled)
 		{
 			var daOffset = animOffsets.get(AnimName);
 			offset.set(daOffset[0], daOffset[1]);
