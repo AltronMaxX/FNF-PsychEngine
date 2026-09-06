@@ -317,7 +317,8 @@ class StoryMenuState extends MusicBeatState
 					persistentUpdate = false;
 					selectedWeek = true;
 					stopspamming = true;
-					FreeplayState.queueSongSelection(redirectSong.songName, Difficulty.defaultList[curDifficulty].toLowerCase(), selectedWeekData.folder);
+					FreeplayState.queueSongSelection(redirectSong.songName, Difficulty.defaultList[curDifficulty].toLowerCase(), 
+						selectedWeekData.freeplayCharacter, selectedWeekData.folder);
 					FlxG.sound.play(Paths.sound('confirmMenu'));
 					MusicBeatState.switchState(new FreeplayState());
 					return;

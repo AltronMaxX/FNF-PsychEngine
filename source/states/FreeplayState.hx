@@ -44,6 +44,7 @@ class FreeplayState extends MusicBeatState
 	private static var requestedSongName:String = null;
 	private static var requestedSongFolder:String = null;
 	private static var requestedSongDiff:String = null;
+	private static var requestedFreeplayChar:String = null;
 	var lerpSelected:Float = 0;
 	var curDifficulty:Int = -1;
 	private static var lastDifficultyName:String = Difficulty.getDefault();
@@ -306,6 +307,8 @@ class FreeplayState extends MusicBeatState
 		if(requestedSongName != null)
 		{
 			curSelectedChar = freeplayCharacters.indexOf('bf');
+			if (freeplayCharacters.contains(requestedFreeplayChar))
+				curSelectedChar = freeplayCharacters.indexOf(requestedFreeplayChar);
 			changeCharacter();
 			var songArr = _songs[requestedSongDiff];
 			for (i in 0...songArr.length)
@@ -343,11 +346,12 @@ class FreeplayState extends MusicBeatState
 		}
 	}
 
-	public static function queueSongSelection(songName:String, diff:String, ?folder:String = '')
+	public static function queueSongSelection(songName:String, diff:String, char:String, ?folder:String = '')
 	{
 		requestedSongName = songName;
 		requestedSongFolder = folder;
 		requestedSongDiff = diff;
+		requestedFreeplayChar = char;
 	}
 
 	function weekIsLocked(name:String):Bool
