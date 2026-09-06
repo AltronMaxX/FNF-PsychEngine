@@ -33,8 +33,8 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		addOption(option);
 
 		var option:Option = new Option('Modcharts',
-			"If checked, there will be different effects while playing a song.",
-			'enableModchart',
+			"If checked, there will be different chart-specific visual effects like moving arrows and UI shifts while playing a song.",
+			'enableModcharts',
 			BOOL);
 		addOption(option);
 
