@@ -63,7 +63,7 @@ class FreeplayState extends MusicBeatState
 	private var grpSongs:FlxTypedGroup<Alphabet>;
 	private var curPlaying:Bool = false;
 
-	private var iconArray:Array<HealthIcon> = [];
+	private var iconArray:FlxTypedGroup<HealthIcon>;
 
 	var bg:FlxSprite;
 	var intendedColor:Int;
@@ -171,6 +171,9 @@ class FreeplayState extends MusicBeatState
 		grpSongs = new FlxTypedGroup<Alphabet>();
 		add(grpSongs);
 
+		iconArray = new FlxTypedGroup<HealthIcon>();
+		add(iconArray);
+
 		createSongTexts();
 		WeekData.setDirectoryFromWeek();
 
@@ -263,9 +266,9 @@ class FreeplayState extends MusicBeatState
 		selectedCharIcon.flipX = true;
 
 		charBubbles = new BubbleSelector(freeplayCharacters.length);
-		charBubbles.x = selectedCharIcon.x + 40;
+		charBubbles.x = charSelectBG.x + charSelectBG.width / 2 - charBubbles.width / 2;
 		charBubbles.y = selectedCharIcon.y + 125;
-		charBubbles.changeSelection(0);
+		charBubbles.changeSelection(curSelectedChar);
 
 		var charArrow2 = new FlxSprite();
 		charArrow2.loadGraphic(Paths.image('charArrow'));
@@ -665,9 +668,9 @@ class FreeplayState extends MusicBeatState
 		updateTexts(elapsed);
 		super.update(elapsed);
 
-		var mult:Float = FlxMath.lerp(1, iconArray[curSelected].scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-		iconArray[curSelected].scale.set(mult, mult);
-		iconArray[curSelected].updateHitbox();
+		var mult:Float = FlxMath.lerp(1, iconArray.members[curSelected].scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+		iconArray.members[curSelected].scale.set(mult, mult);
+		iconArray.members[curSelected].updateHitbox();
 
 		if (curBeat % 4 == 0)
 		{
@@ -868,7 +871,7 @@ class FreeplayState extends MusicBeatState
 
 		for (num => item in grpSongs.members)
 		{
-			var icon:HealthIcon = iconArray[num];
+			var icon:HealthIcon = iconArray.members[num];
 			item.alpha = 0.6;
 			icon.alpha = 0.6;
 			icon.scale.set(1, 1);
@@ -924,7 +927,7 @@ class FreeplayState extends MusicBeatState
 		for (i in _lastVisibles)
 		{
 			grpSongs.members[i].visible = grpSongs.members[i].active = false;
-			iconArray[i].visible = iconArray[i].active = false;
+			iconArray.members[i].visible = iconArray.members[i].active = false;
 		}
 		_lastVisibles = [];
 
@@ -937,7 +940,7 @@ class FreeplayState extends MusicBeatState
 			item.x = ((item.targetY - lerpSelected) * item.distancePerItem.x) + item.startPosition.x;
 			item.y = ((item.targetY - lerpSelected) * 1.3 * item.distancePerItem.y) + item.startPosition.y;
 
-			var icon:HealthIcon = iconArray[i];
+			var icon:HealthIcon = iconArray.members[i];
 			icon.visible = icon.active = true;
 			_lastVisibles.push(i);
 		}
@@ -959,8 +962,8 @@ class FreeplayState extends MusicBeatState
 	{
 		super.beatHit();
 
-		iconArray[curSelected].scale.set(1.2, 1.2);
-		iconArray[curSelected].updateHitbox();
+		iconArray.members[curSelected].scale.set(1.2, 1.2);
+		iconArray.members[curSelected].updateHitbox();
 
 		if (curBeat % 4 == 0)
 		{
@@ -1006,10 +1009,7 @@ class FreeplayState extends MusicBeatState
 	private function createSongTexts() {
 		_lastVisibles = [];
 		grpSongs.clear();
-		for (icon in iconArray) {
-			remove(icon);
-		}
-		iconArray = [];
+		iconArray.clear();
 		for (i in 0...songs.length)
 		{
 			var songData = songs[i];
@@ -1032,9 +1032,7 @@ class FreeplayState extends MusicBeatState
 			songText.visible = songText.active = songText.isMenuItem = false;
 			icon.visible = icon.active = false;
 
-			// using a FlxGroup is too much fuss!
-			iconArray.push(icon);
-			add(icon);
+			iconArray.add(icon);
 		}
 	}
 
@@ -1158,7 +1156,7 @@ class BubbleSelector extends FlxTypedGroup<FlxObject> {
 		for (i in 0...count) {
 			var sprite = new FlxSprite();
 			sprite.loadGraphic(Paths.image('diff'));
-			sprite.x = sprite.width * i;
+			sprite.x = (sprite.width + 5) * i;
 			sprite.y = 0;
 			add(sprite);
 			bubbles.push(sprite);
