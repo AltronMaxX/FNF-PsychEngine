@@ -85,6 +85,64 @@ class Difficulty
 			resetList();
 	}
 
+	inline public static function loadFromAllWeeks() {
+		var diffs:Array<String> = [];
+		for (w in WeekData.weeksList) {
+			final week = WeekData.weeksLoaded.get(w);
+			
+			var diffStr:String = week.difficulties;
+			if(diffStr != null && diffStr.length > 0)
+			{
+				var _diffs = diffStr.trim().split(',');
+				var i:Int = _diffs.length - 1;
+				while (i > 0)
+				{
+					if(_diffs[i] != null)
+					{
+						_diffs[i] = _diffs[i].trim();
+						if(_diffs[i].length < 1) _diffs.remove(_diffs[i]);
+					}
+					--i;
+				}
+
+				for (diff in _diffs) {
+					if (!diffs.contains(diff)) {
+						diffs.push(diff);
+					}
+				}
+			}
+
+			for (song in week.songs) { //parse from songs
+				var diffStr:String = song.difficulties;
+				if(diffStr != null && diffStr.length > 0)
+				{
+					var _diffs = diffStr.trim().split(',');
+					var i:Int = _diffs.length - 1;
+					while (i > 0)
+					{
+						if(_diffs[i] != null)
+						{
+							_diffs[i] = _diffs[i].trim();
+							if(_diffs[i].length < 1) _diffs.remove(_diffs[i]);
+						}
+						--i;
+					}
+
+					for (diff in _diffs) {
+						if (!diffs.contains(diff)) {
+							diffs.push(diff);
+						}
+					}
+				}
+			}
+		}
+		if(diffs.length > 0 && diffs[0].length > 0)
+			list = diffs;
+
+		if (list == [])
+			resetList();
+	}
+
 	inline public static function resetList()
 	{
 		list = vanillaList.copy();
