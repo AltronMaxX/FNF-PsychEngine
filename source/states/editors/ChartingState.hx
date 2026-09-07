@@ -138,7 +138,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var mainBox:PsychUIBox;
 	var mainBoxPosition:FlxPoint = FlxPoint.get(920, 40);
 	var infoBox:PsychUIBox;
-	var infoBoxPosition:FlxPoint = FlxPoint.get(1000, 480);
+	var infoBoxPosition:FlxPoint = FlxPoint.get(1000, 360);
 	var upperBox:PsychUIBox;
 	
 	var camUI:FlxCamera;
@@ -182,9 +182,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var movingNotesLastData:Int = 0;
 	var movingNotesLastY:Float = 0;
 
-	// Timeline Window
-	var timeBox:PsychUIBox;
-	var timeBoxPosition:FlxPoint = FlxPoint.get(990, 340);
+	var infoTimeText:FlxText;
 	var timelineSlider:PsychUISlider;
 
 	var boyfriendBox:PsychUIBox;
@@ -398,33 +396,29 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		infoBox = new PsychUIBox(infoBoxPosition.x, infoBoxPosition.y, 220, 220, ['Information']);
 		infoBox.scrollFactor.set();
 		infoBox.cameras = [camUI];
-		infoText = new FlxText(15, 15, 230, '', 16);
+		infoTimeText = new FlxText(15, 15, 190, '', 16);
+		infoTimeText.scrollFactor.set();
+		infoBox.getTab('Information').menu.add(infoTimeText);
+		infoText = new FlxText(15, 65, 190, '', 16);
 		infoText.scrollFactor.set();
 		infoBox.getTab('Information').menu.add(infoText);
 		add(infoBox);
 
-		timeBox = new PsychUIBox(timeBoxPosition.x, timeBoxPosition.y, 230, 100, ['Timeline']);
-		timeBox.scrollFactor.set();
-		timeBox.cameras = [camUI];
-
-		timelineSlider = new PsychUISlider(15, 15, function(v:Float) {
+		timelineSlider = new PsychUISlider(15, 48, function(v:Float) {
 			if(FlxG.sound.music != null) {
-				var newTime:Float = FlxMath.bound(v, 0, FlxG.sound.music.length / 1000 - 0.001);
-				FlxG.sound.music.time = newTime * 1000;
+				FlxG.sound.music.time = FlxMath.bound(v * 1000 - Conductor.offset, 0, FlxG.sound.music.length - 1);
+				Conductor.songPosition = FlxMath.bound(FlxG.sound.music.time + Conductor.offset, 0, FlxG.sound.music.length - 1);
 
 				vocals.time = FlxG.sound.music.time;
-        		opponentVocals.time = FlxG.sound.music.time;
+				opponentVocals.time = FlxG.sound.music.time;
+				updateScrollY();
 				loadSection();
 			}
-		}, 0, 0, 0, 200);
-		timelineSlider.min = 0;
-		timelineSlider.max = (FlxG.sound.music != null) ? FlxG.sound.music.length/1000 : 1;
-		timelineSlider.value = (FlxG.sound.music != null) ? FlxG.sound.music.time/1000 : 0;
-		timelineSlider.label = 'Current Time';
+		}, 0, 0, 1, 190);
 		timelineSlider.minText.visible = false;
 		timelineSlider.maxText.visible = false;
-		timeBox.getTab('Timeline').menu.add(timelineSlider);
-		add(timeBox);
+		timelineSlider.valueText.visible = false;
+		infoBox.getTab('Information').menu.add(timelineSlider);
 
 		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Data', 'Events', 'Note', 'Section', 'Song']);
 		mainBox.selectedName = 'Song';
@@ -445,9 +439,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			mainBox.setPosition(chartEditorSave.data.mainBoxPosition[0], chartEditorSave.data.mainBoxPosition[1]);
 		if(chartEditorSave.data.infoBoxPosition != null && chartEditorSave.data.infoBoxPosition.length > 1)
 		{
-			// Migrate the old default, but keep positions chosen by the user.
 			var saved = chartEditorSave.data.infoBoxPosition;
-			if(saved[0] != 1000 || saved[1] != 360)
+			if(saved[0] != 1000 || saved[1] != 480)
 				infoBox.setPosition(saved[0], saved[1]);
 		}
 
@@ -1486,10 +1479,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		if(Conductor.songPosition != lastTime || forceDataUpdate)
 		{
+			timelineSlider.max = (FlxG.sound.music != null) ? Math.max(0.001, FlxG.sound.music.length / 1000) : 1;
+			timelineSlider.value = Conductor.songPosition / 1000;
 			var curTime:String = FlxStringUtil.formatTime(Conductor.songPosition / 1000, true);
 			var songLength:String = (FlxG.sound.music != null) ? FlxStringUtil.formatTime(FlxG.sound.music.length / 1000, true) : '???';
-			var str:String =  '$curTime / $songLength' +
-							  '\n\nSection: $curSec' +
+			infoTimeText.text = '$curTime / $songLength';
+			var str:String =  'Section: $curSec' +
 							  '\nBeat: $curBeat' +
 							  '\nStep: $curStep' +
 							  '\n\nBeat Snap: ${curQuant} / 16' +
@@ -2221,6 +2216,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		updateAudioVolume();
 		setPitch();
 		_cacheSections();
+		forceDataUpdate = true;
 	}
 
 	function onSongComplete()
@@ -4948,7 +4944,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		{
 			mainBox.setPosition(mainBoxPosition.x, mainBoxPosition.y);
 			infoBox.setPosition(infoBoxPosition.x, infoBoxPosition.y);
-			timeBox.setPosition(timeBoxPosition.x, timeBoxPosition.y);
 			boyfriendBox.setPosition(boyfriendBoxPosition.x, boyfriendBoxPosition.y);
 			opponentBox.setPosition(opponentBoxPosition.x, opponentBoxPosition.y);
 			UIEvent(PsychUIBox.DROP_EVENT, btn); //to force a save
