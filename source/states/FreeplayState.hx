@@ -151,6 +151,9 @@ class FreeplayState extends MusicBeatState
 				reloadSongs(i);
 		}
 
+		selectedCharIcon = new HealthIcon();
+		updateSelectedCharacterIcon();
+
 		Difficulty.loadFromAllWeeks();
 
 		for (diff in Difficulty.list) {
@@ -259,11 +262,6 @@ class FreeplayState extends MusicBeatState
 		prevText.text = InputFormatter.getKeyName(ClientPrefs.keyBinds.get('ui_prev')[0]);
 		prevText.x = charArrow1.x + prevText.width;
 		prevText.y = FlxG.height - 26 - prevText.height;
-
-		selectedCharIcon = new HealthIcon(freeplayCharacters[curSelectedChar]);
-		selectedCharIcon.x = FlxG.width - 90 - selectedCharIcon.width;
-		selectedCharIcon.y = FlxG.height - 26 - selectedCharIcon.height;
-		selectedCharIcon.flipX = true;
 
 		charBubbles = new BubbleSelector(freeplayCharacters.length);
 		charBubbles.x = charSelectBG.x + charSelectBG.width / 2 - charBubbles.width / 2;
@@ -779,6 +777,14 @@ class FreeplayState extends MusicBeatState
 		return true;
 	}
 
+	function updateSelectedCharacterIcon()
+	{
+		selectedCharIcon.changeIcon(freeplayCharacters[curSelectedChar]);
+		selectedCharIcon.x = FlxG.width - 90 - selectedCharIcon.width;
+		selectedCharIcon.y = FlxG.height - 26 - selectedCharIcon.height;
+		selectedCharIcon.flipX = true;
+	}
+
 	function changeCharacter(change:Int = 0, playSound:Bool = true) {
 		var lastSong = songs[curSelected];
 		if (player.playingMusic)
@@ -817,10 +823,7 @@ class FreeplayState extends MusicBeatState
 			}
 		}	
 
-		selectedCharIcon.changeIcon(freeplayCharacters[curSelectedChar]);
-		selectedCharIcon.x = FlxG.width - 90 - selectedCharIcon.width;
-		selectedCharIcon.y = FlxG.height - 26 - selectedCharIcon.height;
-		selectedCharIcon.flipX = true;
+		updateSelectedCharacterIcon();
 		createSongTexts();
 
 		charBubbles.changeSelection(curSelectedChar);
