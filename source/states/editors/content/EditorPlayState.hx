@@ -13,6 +13,15 @@ import flixel.animation.FlxAnimationController;
 import flixel.input.keyboard.FlxKey;
 import openfl.events.KeyboardEvent;
 
+typedef EditorPlayAudioSettings = {
+	var instVolume:Float;
+	var playerVolume:Float;
+	var opponentVolume:Float;
+	var playerHitsound:Float;
+	var opponentHitsound:Float;
+	var metronome:Float;
+}
+
 class EditorPlayState extends MusicBeatSubstate
 {
 	// Borrowed from original PlayState
@@ -66,7 +75,8 @@ class EditorPlayState extends MusicBeatSubstate
 	var guitarHeroSustains:Bool = false;
 
 	var _noteList:Array<Note>;
-	public function new(noteList:Array<Note>, allVocals:Array<FlxSound>)
+	var audioSettings:EditorPlayAudioSettings;
+	public function new(noteList:Array<Note>, allVocals:Array<FlxSound>, audioSettings:EditorPlayAudioSettings)
 	{
 		super();
 		
@@ -74,6 +84,7 @@ class EditorPlayState extends MusicBeatSubstate
 		this.vocals = allVocals[0];
 		this.opponentVocals = allVocals[1];
 		this._noteList = noteList;
+		this.audioSettings = audioSettings;
 		this.startPos = Conductor.songPosition;
 		Conductor.songPosition = startPos;
 
@@ -91,7 +102,8 @@ class EditorPlayState extends MusicBeatSubstate
 
 		cachePopUpScore();
 		guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
-		if(ClientPrefs.data.hitsoundVolume > 0) Paths.sound('hitsound');
+		if(audioSettings.playerHitsound > 0 || audioSettings.opponentHitsound > 0) Paths.sound('hitsound');
+		if(audioSettings.metronome > 0) Paths.sound('Metronome_Tick');
 
 		/* setting up Editor PlayState stuff */
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
@@ -248,6 +260,8 @@ class EditorPlayState extends MusicBeatSubstate
 			return;
 		}
 		notes.sort(FlxSort.byY, ClientPrefs.data.downScroll ? FlxSort.ASCENDING : FlxSort.DESCENDING);
+		if(audioSettings.metronome > 0)
+			FlxG.sound.play(Paths.sound('Metronome_Tick'), audioSettings.metronome);
 
 		super.beatHit();
 		lastBeatHit = curBeat;
@@ -283,7 +297,9 @@ class EditorPlayState extends MusicBeatSubstate
 		#end
 		inst.looped = false;
 		inst.onComplete = finishSong;
-		inst.volume = vocals.volume = opponentVocals.volume = 1;
+		inst.volume = audioSettings.instVolume;
+		vocals.volume = audioSettings.playerVolume;
+		opponentVocals.volume = audioSettings.opponentVolume;
 		FlxG.sound.list.add(inst);
 
 		FlxG.sound.music.pause();
@@ -523,7 +539,7 @@ class EditorPlayState extends MusicBeatSubstate
 	private function popUpScore(note:Note = null):Void
 	{
 		var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
-		vocals.volume = 1;
+		vocals.volume = audioSettings.playerVolume;
 
 		if (!ClientPrefs.data.comboStacking && comboGroup.members.length > 0)
 		{
@@ -788,8 +804,11 @@ class EditorPlayState extends MusicBeatSubstate
 	
 	function opponentNoteHit(note:Note):Void
 	{
+		if(!note.isSustainNote && !note.hitsoundDisabled && audioSettings.opponentHitsound > 0)
+			FlxG.sound.play(Paths.sound(note.hitsound), audioSettings.opponentHitsound);
+
 		if (PlayState.SONG.needsVoices && opponentVocals.length <= 0)
-			vocals.volume = 1;
+			vocals.volume = audioSettings.playerVolume;
 
 		var strum:StrumNote = opponentStrums.members[Std.int(Math.abs(note.noteData))];
 		if(strum != null) {
@@ -807,8 +826,8 @@ class EditorPlayState extends MusicBeatSubstate
 		if(note.wasGoodHit) return;
 
 		note.wasGoodHit = true;
-		if (note.hitsoundVolume > 0 && !note.hitsoundDisabled)
-			FlxG.sound.play(Paths.sound(note.hitsound), note.hitsoundVolume);
+		if (!note.isSustainNote && !note.hitsoundDisabled && audioSettings.playerHitsound > 0)
+			FlxG.sound.play(Paths.sound(note.hitsound), audioSettings.playerHitsound);
 
 		if(note.hitCausesMiss) {
 			noteMiss(note);
@@ -829,7 +848,7 @@ class EditorPlayState extends MusicBeatSubstate
 
 		var spr:StrumNote = playerStrums.members[note.noteData];
 		if(spr != null) spr.playAnim('confirm', true);
-		vocals.volume = 1;
+		vocals.volume = audioSettings.playerVolume;
 
 		if (!note.isSustainNote)
 			invalidateNote(note);
