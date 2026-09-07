@@ -2338,9 +2338,20 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		return swagNote;
 	}
 
+	function snapEventTimeToSection(time:Float, sectionTimes:Array<Float>):Float
+	{
+		for(i in 0...sectionTimes.length - 1)
+		{
+			if(Math.abs(time - sectionTimes[i]) <= 0.001) return sectionTimes[i];
+			if(sectionTimes[i] > time) break;
+		}
+		return time;
+	}
+
 	function createEvent(event:Dynamic)
 	{
-		var daStrumTime:Float = event[0];
+		var daStrumTime:Float = snapEventTimeToSection(event[0], cachedSectionTimes);
+		event[0] = daStrumTime;
 		var swagEvent:EventMetaNote = new EventMetaNote(daStrumTime, event);
 		swagEvent.x = gridBg.x;
 		swagEvent.eventText.x = swagEvent.x - swagEvent.eventText.width - 10;
@@ -2348,7 +2359,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		swagEvent.active = false;
 
 		var secNum:Int = 0;
-		for (i in 1...cachedSectionTimes.length)
+		for (i in 1...cachedSectionTimes.length - 1)
 		{
 			if(cachedSectionTimes[i] > daStrumTime) break;
 			secNum++;
@@ -5063,6 +5074,29 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		notes.sort(PlayState.sortByTime);
 		_cacheSections();
 
+		var changedSelectedEvents:Bool = false;
+		for(event in events.copy())
+		{
+			var oldTime:Float = snapEventTimeToSection(event.strumTime, oldTimes);
+			var eventSec:Int = 0;
+			while(eventSec + 2 < oldTimes.length && oldTimes[eventSec + 1] <= oldTime)
+				eventSec++;
+			if(eventSec + 1 >= cachedSectionTimes.length)
+			{
+				if(selectedNotes.remove(event)) changedSelectedEvents = true;
+				events.remove(event);
+				event.destroy();
+				continue;
+			}
+			var ratio:Float = (cachedSectionTimes[eventSec + 1] - cachedSectionTimes[eventSec])
+				/ (oldTimes[eventSec + 1] - oldTimes[eventSec]);
+			var newTime:Float = oldTime < 0 ? oldTime : cachedSectionTimes[eventSec] + (oldTime - oldTimes[eventSec]) * ratio;
+			event.setStrumTime(snapEventTimeToSection(newTime, cachedSectionTimes));
+			event.updateEventText();
+			positionNoteYOnTime(event, eventSec);
+		}
+		if(changedSelectedEvents) onSelectNote();
+
 		var noteSec:Int = 0;
 		var oldNextSectionTime:Float = oldTimes[noteSec + 1];
 		var oldCurSectionTime:Float = oldTimes[noteSec];
@@ -5117,17 +5151,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 			positionNoteYOnTime(note, noteSec);
 			note.updateSustainToStepCrochet(cachedSectionCrochets[noteSec] / 4);
-		}
-		
-		for (event in events)
-		{
-			var secNum:Int = 0;
-			for (time in cachedSectionTimes)
-			{
-				if(time > event.strumTime) break;
-				secNum++;
-			}
-			positionNoteYOnTime(event, secNum);
 		}
 		
 		var time:Float = FlxMath.remapToRange(gridLerp, 0, 1, cachedSectionTimes[curSec], cachedSectionTimes[curSec + 1]);
