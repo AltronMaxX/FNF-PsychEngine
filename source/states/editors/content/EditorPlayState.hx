@@ -169,7 +169,7 @@ class EditorPlayState extends MusicBeatSubstate
 		
 		if (startingSong)
 		{
-			timerToStart -= elapsed * 1000;
+			timerToStart -= elapsed * 1000 * playbackRate;
 			Conductor.songPosition = startPos - timerToStart;
 			if(timerToStart < 0) startSong();
 		}
@@ -278,6 +278,9 @@ class EditorPlayState extends MusicBeatSubstate
 	{
 		startingSong = false;
 		@:privateAccess inst.loadEmbedded(FlxG.sound.music._sound);
+		#if FLX_PITCH
+		inst.pitch = vocals.pitch = opponentVocals.pitch = playbackRate;
+		#end
 		inst.looped = false;
 		inst.onComplete = finishSong;
 		inst.volume = vocals.volume = opponentVocals.volume = 1;
@@ -482,7 +485,7 @@ class EditorPlayState extends MusicBeatSubstate
 		if(ClientPrefs.data.noteOffset <= 0) {
 			endSong();
 		} else {
-			finishTimer = new FlxTimer().start(ClientPrefs.data.noteOffset / 1000, function(tmr:FlxTimer) {
+			finishTimer = new FlxTimer().start(ClientPrefs.data.noteOffset / 1000 / playbackRate, function(tmr:FlxTimer) {
 				endSong();
 			});
 		}

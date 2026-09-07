@@ -2733,10 +2733,16 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		playbackSlider.label = 'Playback Rate';
 		
 		objY += 60;
-		mouseSnapCheckBox = new PsychUICheckBox(objX, objY, 'Mouse Scroll Snap', 100, function() chartEditorSave.data.mouseScrollSnap = mouseSnapCheckBox.checked);
+		mouseSnapCheckBox = new PsychUICheckBox(objX, objY, 'Mouse Scroll Snap', 60, function() chartEditorSave.data.mouseScrollSnap = mouseSnapCheckBox.checked);
 		mouseSnapCheckBox.checked = chartEditorSave.data.mouseScrollSnap;
 
-		ignoreProgressCheckBox = new PsychUICheckBox(objX + 150, objY, 'Ignore Progress Warnings', 100, function() chartEditorSave.data.ignoreProgressWarns = ignoreProgressCheckBox.checked);
+		var resetPlaybackButton = new PsychUIButton(95, objY - 4, 'Reset Playback Rate', function()
+		{
+			playbackSlider.value = playbackRate = 1;
+			setPitch();
+		}, 110, 24);
+
+		ignoreProgressCheckBox = new PsychUICheckBox(objX + 200, objY, 'Ignore Progress Warnings', 65, function() chartEditorSave.data.ignoreProgressWarns = ignoreProgressCheckBox.checked);
 		ignoreProgressCheckBox.checked = chartEditorSave.data.ignoreProgressWarns;
 
 		objY += 50;
@@ -2759,6 +2765,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		tab_group.add(playbackSlider);
 		tab_group.add(mouseSnapCheckBox);
+		tab_group.add(resetPlaybackButton);
 		tab_group.add(ignoreProgressCheckBox);
 
 		tab_group.add(new FlxText(hitsoundPlayerStepper.x, hitsoundPlayerStepper.y - 15, 100, 'Hitsound (Player):'));
