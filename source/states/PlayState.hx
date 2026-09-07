@@ -2453,6 +2453,7 @@ class PlayState extends MusicBeatState
 				campaignMisses += songMisses;
 
 				storyPlaylist.remove(storyPlaylist[0]);
+				skipUnsupportedStorySongs(WeekData.getCurrentWeek());
 
 				if (storyPlaylist.length <= 0)
 				{
@@ -2506,6 +2507,26 @@ class PlayState extends MusicBeatState
 			transitioning = true;
 		}
 		return true;
+	}
+
+	public static function skipUnsupportedStorySongs(week:WeekData):Void
+	{
+		var difficulty = Difficulty.getString(storyDifficulty, false).toLowerCase();
+		while(storyPlaylist.length > 0)
+		{
+			var supported = false;
+			for(song in WeekData.getStorySongs(week))
+			{
+				if(song.songName == storyPlaylist[0]
+					&& song.difficulties.split(',').map(diff -> diff.trim().toLowerCase()).contains(difficulty))
+				{
+					supported = true;
+					break;
+				}
+			}
+			if(supported) break;
+			storyPlaylist.shift();
+		}
 	}
 
 	public function KillNotes() {

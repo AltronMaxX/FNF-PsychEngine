@@ -56,11 +56,13 @@ class PauseSubState extends MusicBeatSubstate
 			if (song.songName == PlayState.SONG.song) {
 				final diffs = song.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
 				for (diff in diffs) {
-					difficultyChoices.push(diff);
+					if(!PlayState.isStoryMode || Difficulty.list.map(name -> name.toLowerCase()).contains(diff))
+						difficultyChoices.push(diff);
 				}
 			}
 		}
 
+		if(PlayState.isStoryMode && difficultyChoices.length < 2) menuItemsOG.remove('Change Difficulty');
 		difficultyChoices.push('BACK');
 
 		pauseMusic = new FlxSound();
@@ -281,13 +283,18 @@ class PauseSubState extends MusicBeatSubstate
 			if (menuItems == difficultyChoices)
 			{
 				var songLowercase:String = Paths.formatToSongPath(PlayState.SONG.song);
-				var poop:String = Highscore.formatSong(songLowercase, Difficulty.getDiffID(difficultyChoices[curSelected]));
+				var selectedDifficulty:Int = Difficulty.list.map(name -> name.toLowerCase()).indexOf(difficultyChoices[curSelected]);
+				var poop:String = Highscore.formatSong(songLowercase, selectedDifficulty);
 				try
 				{
 					if(menuItems.length - 1 != curSelected && difficultyChoices.contains(daSelected))
 					{
 						Song.loadFromJson(poop, songLowercase);
-						PlayState.storyDifficulty = Difficulty.getDiffID(difficultyChoices[curSelected]);
+						PlayState.storyDifficulty = selectedDifficulty;
+						if(PlayState.isStoryMode)
+							StoryMenuState.lastDifficultyName = Difficulty.getString(selectedDifficulty, false);
+						else
+							FreeplayState.lastDifficultyName = Difficulty.getString(selectedDifficulty, false);
 						MusicBeatState.resetState();
 						FlxG.sound.music.volume = 0;
 						PlayState.changedDifficulty = true;

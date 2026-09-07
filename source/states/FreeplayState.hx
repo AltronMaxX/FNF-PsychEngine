@@ -47,6 +47,7 @@ class FreeplayState extends MusicBeatState
 	private static var requestedFreeplayChar:String = null;
 	var lerpSelected:Float = 0;
 	var curDifficulty:Int = -1;
+	@:allow(substates.PauseSubState)
 	private static var lastDifficultyName:String = Difficulty.getDefault();
 
 	var scoreBG:FlxSprite;
@@ -118,21 +119,22 @@ class FreeplayState extends MusicBeatState
 			var hasAvailableSong = false;
 			for (song in weekData.songs) {
 				final sd:SongData = cast song;
+				var songAvailable:Bool = true;
 				if (sd.unlockedAfter != null && sd.showAfter != null) {
 
 					loadSave(sd.unlockedAfter.save);
 					loadSave(sd.showAfter.save);
 
-					hasAvailableSong = shouldShowLockedSong(sd.showAfter);
-				} else 
-					hasAvailableSong = true;
+					songAvailable = shouldShowLockedSong(sd.showAfter);
+				}
+				hasAvailableSong = hasAvailableSong || songAvailable;
 
 				var preparedDiffs = sd.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
 				if (!charDiff.exists(weekData.freeplayCharacter)) 
 					charDiff.set(weekData.freeplayCharacter, []);
 
 				for (diff in preparedDiffs) {
-					if (!charDiff[weekData.freeplayCharacter].contains(diff) && hasAvailableSong)
+					if (!charDiff[weekData.freeplayCharacter].contains(diff) && songAvailable)
 						charDiff[weekData.freeplayCharacter].push(diff);
 				}
 			}
@@ -141,6 +143,7 @@ class FreeplayState extends MusicBeatState
 				freeplayCharacters.push(weekData.freeplayCharacter);
 			}
 		}
+		if(curSelectedChar < 0 || curSelectedChar >= freeplayCharacters.length) curSelectedChar = 0;
 		
 		for (i in 0...WeekData.weeksList.length)
 		{
@@ -165,6 +168,15 @@ class FreeplayState extends MusicBeatState
 		Mods.loadTopMod();
 
 		curDifficulty = Math.round(Math.max(0, Difficulty.list.indexOf(lastDifficultyName)));
+		if(unavailableDiffs.contains(curDifficulty))
+		{
+			for (i in 0...Difficulty.list.length)
+			{
+				if(unavailableDiffs.contains(i)) continue;
+				curDifficulty = i;
+				break;
+			}
+		}
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -196,17 +208,7 @@ class FreeplayState extends MusicBeatState
 		leftSel.text = '<';
 		add(leftSel);
 
-		var availableDiffs = 0;
-		for (diff in Difficulty.list) {
-			for (key in charDiff.keys()) {
-				if (freeplayCharacters.contains(key) && charDiff[key].contains(diff.toLowerCase())) {
-					availableDiffs++;
-					break;
-				}
-			}
-		}
-
-		diffSel = new BubbleSelector(availableDiffs);
+		diffSel = new BubbleSelector(Difficulty.list.length);
 		diffSel.x = leftSel.x + 10;
 		diffSel.y = leftSel.y + 7;
 		add(diffSel);
@@ -307,24 +309,27 @@ class FreeplayState extends MusicBeatState
 
 		if(requestedSongName != null)
 		{
-			curSelectedChar = freeplayCharacters.indexOf('bf');
+			curSelectedChar = Std.int(Math.max(0, freeplayCharacters.indexOf('bf')));
 			if (freeplayCharacters.contains(requestedFreeplayChar))
 				curSelectedChar = freeplayCharacters.indexOf(requestedFreeplayChar);
 			changeCharacter();
 			var songArr = _songs[requestedSongDiff];
+			if(songArr != null)
 			for (i in 0...songArr.length)
 			{
 				if(songArr[i].songName == requestedSongName && (requestedSongFolder == null 
 					|| requestedSongFolder.length < 1 || songArr[i].folder == requestedSongFolder))
 				{
 					curSelected = i;
-					curDifficulty = Difficulty.getDiffID(requestedSongDiff);
+					curDifficulty = Difficulty.list.map(diff -> diff.toLowerCase()).indexOf(requestedSongDiff);
+					createSongTexts();
 					break;
 				}
 			}
 			requestedSongName = null;
 			requestedSongFolder = null;
 			requestedSongDiff = null;
+			requestedFreeplayChar = null;
 		}
 		
 		changeSelection();
@@ -351,7 +356,7 @@ class FreeplayState extends MusicBeatState
 	{
 		requestedSongName = songName;
 		requestedSongFolder = folder;
-		requestedSongDiff = diff;
+		requestedSongDiff = diff.trim().toLowerCase();
 		requestedFreeplayChar = char;
 	}
 

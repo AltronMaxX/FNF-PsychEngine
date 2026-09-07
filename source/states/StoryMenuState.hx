@@ -21,6 +21,7 @@ class StoryMenuState extends MusicBeatState
 
 	var scoreText:FlxText;
 
+	@:allow(substates.PauseSubState)
 	private static var lastDifficultyName:String = '';
 	var curDifficulty:Int = 1;
 
@@ -119,7 +120,7 @@ class StoryMenuState extends MusicBeatState
 					lock.frames = ui_tex;
 					lock.animation.addByPrefix('lock', 'lock');
 					lock.animation.play('lock');
-					lock.ID = i;
+					lock.ID = num;
 					grpLocks.add(lock);
 				}
 				num++;
@@ -151,7 +152,7 @@ class StoryMenuState extends MusicBeatState
 		{
 			lastDifficultyName = Difficulty.getDefault();
 		}
-		curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(lastDifficultyName)));
+		curDifficulty = Math.round(Math.max(0, Difficulty.list.indexOf(lastDifficultyName)));
 		
 		sprDifficulty = new FlxSprite(0, leftArrow.y);
 		sprDifficulty.antialiasing = ClientPrefs.data.antialiasing;
@@ -268,7 +269,7 @@ class StoryMenuState extends MusicBeatState
 			else if(controls.RESET)
 			{
 				persistentUpdate = false;
-				openSubState(new ResetScoreSubState('', curDifficulty, '', curWeek));
+				openSubState(new ResetScoreSubState('', curDifficulty, '', PlayState.storyWeek));
 				//FlxG.sound.play(Paths.sound('scrollMenu'));
 			}
 			else if (controls.ACCEPT)
@@ -299,16 +300,13 @@ class StoryMenuState extends MusicBeatState
 	function selectWeek()
 	{
 		var selectedWeekData:WeekData = loadedWeeks[curWeek];
-		if (!weekIsLocked(selectedWeekData.fileName))
+		if (!weekIsLocked(selectedWeekData.fileName) && Difficulty.list.length > 0)
 		{
 			// We can't use Dynamic Array .copy() because that crashes HTML5, here's a workaround.
 			var songArray:Array<String> = [];
 			var leWeek:Array<SongData> = WeekData.getStorySongs(selectedWeekData);
-			for (sd in leWeek) {
-				if (sd.difficulties.split(',').map(function(str:String):String 
-					{return str.trim().toLowerCase();}).contains(Difficulty.defaultList[curDifficulty].toLowerCase())) 
-						songArray.push(sd.songName);
-			}
+			for (sd in leWeek)
+				songArray.push(sd.songName);
 
 			if (selectedWeekData.redirectToFreeplay) {
 				var redirectSong:SongData = WeekData.getFreeplayRedirectSong(selectedWeekData);
@@ -317,7 +315,7 @@ class StoryMenuState extends MusicBeatState
 					persistentUpdate = false;
 					selectedWeek = true;
 					stopspamming = true;
-					FreeplayState.queueSongSelection(redirectSong.songName, Difficulty.defaultList[curDifficulty].toLowerCase(), 
+					FreeplayState.queueSongSelection(redirectSong.songName, Difficulty.getString(curDifficulty, false).toLowerCase(),
 						selectedWeekData.freeplayCharacter, selectedWeekData.folder);
 					FlxG.sound.play(Paths.sound('confirmMenu'));
 					MusicBeatState.switchState(new FreeplayState());
@@ -325,7 +323,10 @@ class StoryMenuState extends MusicBeatState
 				}
 			}
 
-			if(songArray.length < 1)
+			PlayState.storyPlaylist = songArray;
+			PlayState.storyDifficulty = curDifficulty;
+			PlayState.skipUnsupportedStorySongs(selectedWeekData);
+			if(PlayState.storyPlaylist.length < 1)
 			{
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				return;
@@ -334,14 +335,11 @@ class StoryMenuState extends MusicBeatState
 			// Nevermind that's stupid lmao
 			try
 			{
-				PlayState.storyPlaylist = songArray;
 				PlayState.isStoryMode = true;
 				selectedWeek = true;
 	
 				var diffic = Difficulty.getFilePath(curDifficulty);
 				if(diffic == null) diffic = '';
-	
-				PlayState.storyDifficulty = curDifficulty;
 	
 				Song.loadFromJson(PlayState.storyPlaylist[0].toLowerCase() + diffic, PlayState.storyPlaylist[0].toLowerCase());
 				PlayState.campaignScore = 0;
@@ -395,7 +393,9 @@ class StoryMenuState extends MusicBeatState
 
 	function changeDifficulty(change:Int = 0):Void
 	{
-		curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.vanillaList.length-1);
+		if(Difficulty.list.length == 0) return;
+
+		curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
 
 		WeekData.setDirectoryFromWeek(loadedWeeks[curWeek]);
 
@@ -415,6 +415,7 @@ class StoryMenuState extends MusicBeatState
 			FlxTween.tween(sprDifficulty, {y: sprDifficulty.y + 30, alpha: 1}, 0.07);
 		}
 		lastDifficultyName = diff;
+		updateText();
 
 		#if !switch
 		intendedScore = Highscore.getWeekScore(loadedWeeks[curWeek].fileName, curDifficulty);
@@ -455,10 +456,10 @@ class StoryMenuState extends MusicBeatState
 		} else {
 			bgSprite.loadGraphic(Paths.image('menubackgrounds/menu_' + assetName));
 		}
-		PlayState.storyWeek = curWeek;
+		PlayState.storyWeek = WeekData.weeksList.indexOf(leWeek.fileName);
 
-		Difficulty.loadFromWeek();
-		difficultySelectors.visible = unlocked;
+		Difficulty.loadFromWeek(leWeek);
+		difficultySelectors.visible = unlocked && Difficulty.list.length > 0;
 
 		if(Difficulty.list.contains(Difficulty.getDefault()))
 			curDifficulty = Math.round(Math.max(0, Difficulty.list.indexOf(Difficulty.getDefault())));
@@ -489,12 +490,12 @@ class StoryMenuState extends MusicBeatState
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		var stringThing:Array<String> = [];
 		for (song in WeekData.getStorySongs(leWeek)) {
-			if (song.difficulties.split(',').map(function(str:String):String 
-				{return str.trim().toLowerCase();}).contains(Difficulty.defaultList[curDifficulty].toLowerCase())) 
+			if (Difficulty.list.length > 0 && song.difficulties.split(',').map(function(str:String):String
+				{return str.trim().toLowerCase();}).contains(Difficulty.getString(curDifficulty, false).toLowerCase()))
 				stringThing.push(song.songName);
 			
 		}
-		if(stringThing.length < 1)
+		if(stringThing.length < 1 && Difficulty.list.length > 0)
 		{
 			var redirectSong:Dynamic = WeekData.getFreeplayRedirectSong(leWeek);
 			if(redirectSong != null) stringThing.push(redirectSong[0] + ' (Freeplay)');
@@ -512,7 +513,7 @@ class StoryMenuState extends MusicBeatState
 		txtTracklist.x -= FlxG.width * 0.35;
 
 		#if !switch
-		intendedScore = Highscore.getWeekScore(loadedWeeks[curWeek].fileName, curDifficulty);
+		intendedScore = Difficulty.list.length > 0 ? Highscore.getWeekScore(loadedWeeks[curWeek].fileName, curDifficulty) : 0;
 		#end
 	}
 }

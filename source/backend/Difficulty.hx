@@ -36,53 +36,21 @@ class Difficulty
 	inline public static function loadFromWeek(week:WeekData = null)
 	{
 		if(week == null) week = WeekData.getCurrentWeek();
-		var diffs:Array<String> = [];
-
-		var diffStr:String = week.difficulties;
-		if(diffStr != null && diffStr.length > 0)
+		var allowed = week.difficulties != null && week.difficulties.trim().length > 0
+			? week.difficulties.split(',').map(diff -> diff.trim()) : vanillaList.copy();
+		list = [];
+		for(diff in allowed)
 		{
-			diffs = diffStr.trim().split(',');
-			var i:Int = diffs.length - 1;
-			while (i > 0)
+			if(diff.length < 1 || list.map(name -> name.toLowerCase()).contains(diff.toLowerCase())) continue;
+			for(song in week.songs)
 			{
-				if(diffs[i] != null)
+				if(song.difficulties.split(',').map(name -> name.trim().toLowerCase()).contains(diff.toLowerCase()))
 				{
-					diffs[i] = diffs[i].trim();
-					if(diffs[i].length < 1) diffs.remove(diffs[i]);
-				}
-				--i;
-			}
-		}
-
-		for (song in week.songs) { //parse from songs
-			var diffStr:String = song.difficulties;
-			if(diffStr != null && diffStr.length > 0)
-			{
-				var _diffs = diffStr.trim().split(',');
-				var i:Int = _diffs.length - 1;
-				while (i > 0)
-				{
-					if(_diffs[i] != null)
-					{
-						_diffs[i] = _diffs[i].trim();
-						if(_diffs[i].length < 1) _diffs.remove(_diffs[i]);
-					}
-					--i;
-				}
-
-				for (diff in _diffs) {
-					if (!diffs.contains(diff)) {
-						diffs.push(diff);
-					}
+					list.push(diff);
+					break;
 				}
 			}
 		}
-
-		if(diffs.length > 0 && diffs[0].length > 0)
-			list = diffs;
-
-		if (list == [])
-			resetList();
 	}
 
 	inline public static function loadFromAllWeeks() {

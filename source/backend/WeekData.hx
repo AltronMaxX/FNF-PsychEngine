@@ -103,7 +103,7 @@ class WeekData {
 		for (s in weekFile.songs) {
 			if (!Reflect.hasField(s, "songName") && !Reflect.hasField(s, "icon") 
 				&& !Reflect.hasField(s, "backgroundColor")) {
-				final diff = this.difficulties != null ? this.difficulties : Difficulty.vanillaList.join(',');
+				final diff = this.difficulties != null && this.difficulties.trim().length > 0 ? this.difficulties : Difficulty.vanillaList.join(',');
 				var unlockedAfter:UnlockData = null;
 				if (s.length == 4) {
 					unlockedAfter = {
@@ -122,7 +122,7 @@ class WeekData {
 			} else {
 				final sd:SongData = cast s;
 				if (sd.difficulties == null)
-					sd.difficulties = Difficulty.vanillaList.join(',');
+					sd.difficulties = this.difficulties != null && this.difficulties.trim().length > 0 ? this.difficulties : Difficulty.vanillaList.join(',');
 				this.songs.push(sd); //Song is already new
 			}
 		}
