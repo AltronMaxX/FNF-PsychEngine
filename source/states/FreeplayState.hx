@@ -16,6 +16,7 @@ import states.TitleState;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
+import flixel.util.FlxStringUtil;
 
 import openfl.utils.Assets;
 
@@ -422,7 +423,7 @@ class FreeplayState extends MusicBeatState
 
 		if (!player.playingMusic)
 		{
-			scoreText.text = Language.getPhrase('personal_best', 'PERSONAL BEST: {1} ({2}%)', [lerpScore, ratingSplit.join('.')]);
+			scoreText.text = Language.getPhrase('personal_best', 'PERSONAL BEST: {1} ({2}%)', [FlxStringUtil.formatMoney(lerpScore, false), ratingSplit.join('.')]);
 			positionHighscore();
 			
 			if(songs.length > 1)
