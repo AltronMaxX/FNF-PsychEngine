@@ -6,6 +6,7 @@ import backend.Song;
 
 import flixel.group.FlxGroup;
 import flixel.graphics.FlxGraphic;
+import flixel.util.FlxSave;
 import flixel.util.FlxStringUtil;
 
 import objects.MenuItem;
@@ -71,7 +72,26 @@ class StoryMenuState extends MusicBeatState
 			return;
 		}
 
-		if(curWeek >= WeekData.weeksList.length) curWeek = 0;
+		for(name in WeekData.weeksList)
+		{
+			var weekFile:WeekData = WeekData.weeksLoaded.get(name);
+			if(isWeekConditionMet(weekFile.showAfter) && (!weekFile.hiddenUntilUnlocked || !weekIsLocked(name)))
+				loadedWeeks.push(weekFile);
+		}
+
+		if(loadedWeeks.length < 1)
+		{
+			WeekData.setDirectoryFromWeek(null);
+			var emptyText:FlxText = new FlxText(0, 0, FlxG.width,
+				Language.getPhrase('story_no_available_weeks', 'NO WEEKS AVAILABLE\n\nPress BACK to return to Main Menu.'), 24);
+			emptyText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER);
+			emptyText.screenCenter();
+			add(emptyText);
+			super.create();
+			return;
+		}
+
+		if(curWeek < 0 || curWeek >= loadedWeeks.length) curWeek = 0;
 
 		scoreText = new FlxText(10, 10, 0, Language.getPhrase('week_score', 'WEEK SCORE: {1}', [FlxStringUtil.formatMoney(lerpScore, false)]), 36);
 		scoreText.setFormat(Paths.font("vcr.ttf"), 32);
@@ -95,38 +115,28 @@ class StoryMenuState extends MusicBeatState
 		grpLocks = new FlxTypedGroup<FlxSprite>();
 		add(grpLocks);
 
-		var num:Int = 0;
 		var itemTargetY:Float = 0;
-		for (i in 0...WeekData.weeksList.length)
+		for (num in 0...loadedWeeks.length)
 		{
-			var weekFile:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[i]);
-			var isLocked:Bool = weekIsLocked(WeekData.weeksList[i]);
-			if(!isLocked || !weekFile.hiddenUntilUnlocked)
+			var weekFile:WeekData = loadedWeeks[num];
+			WeekData.setDirectoryFromWeek(weekFile);
+			var weekThing:MenuItem = new MenuItem(0, bgSprite.y + 396, weekFile.fileName);
+			weekThing.y += ((weekThing.height + 20) * num);
+			weekThing.ID = num;
+			weekThing.targetY = itemTargetY;
+			itemTargetY += Math.max(weekThing.height, 110) + 10;
+			grpWeekText.add(weekThing);
+			weekThing.screenCenter(X);
+
+			if (weekIsLocked(weekFile.fileName))
 			{
-				loadedWeeks.push(weekFile);
-				WeekData.setDirectoryFromWeek(weekFile);
-				var weekThing:MenuItem = new MenuItem(0, bgSprite.y + 396, WeekData.weeksList[i]);
-				weekThing.y += ((weekThing.height + 20) * num);
-				weekThing.ID = num;
-				weekThing.targetY = itemTargetY;
-				itemTargetY += Math.max(weekThing.height, 110) + 10;
-				grpWeekText.add(weekThing);
-
-				weekThing.screenCenter(X);
-				// weekThing.updateHitbox();
-
-				// Needs an offset thingie
-				if (isLocked)
-				{
-					var lock:FlxSprite = new FlxSprite(weekThing.width + 10 + weekThing.x);
-					lock.antialiasing = ClientPrefs.data.antialiasing;
-					lock.frames = ui_tex;
-					lock.animation.addByPrefix('lock', 'lock');
-					lock.animation.play('lock');
-					lock.ID = num;
-					grpLocks.add(lock);
-				}
-				num++;
+				var lock:FlxSprite = new FlxSprite(weekThing.width + 10 + weekThing.x);
+				lock.antialiasing = ClientPrefs.data.antialiasing;
+				lock.frames = ui_tex;
+				lock.animation.addByPrefix('lock', 'lock');
+				lock.animation.play('lock');
+				lock.ID = num;
+				grpLocks.add(lock);
 			}
 		}
 
@@ -194,7 +204,7 @@ class StoryMenuState extends MusicBeatState
 
 	override function closeSubState() {
 		persistentUpdate = true;
-		changeWeek();
+		if(loadedWeeks.length > 0) changeWeek();
 		super.closeSubState();
 	}
 
@@ -203,7 +213,7 @@ class StoryMenuState extends MusicBeatState
 		if(FlxG.sound.music != null)
 			Conductor.songPosition = FlxG.sound.music.time;
 
-		if(WeekData.weeksList.length < 1)
+		if(loadedWeeks.length < 1)
 		{
 			if (controls.BACK && !movedBack && !selectedWeek)
 			{
@@ -496,7 +506,27 @@ class StoryMenuState extends MusicBeatState
 
 	function weekIsLocked(name:String):Bool {
 		var leWeek:WeekData = WeekData.weeksLoaded.get(name);
-		return (!leWeek.startUnlocked && leWeek.weekBefore.length > 0 && (!weekCompleted.exists(leWeek.weekBefore) || !weekCompleted.get(leWeek.weekBefore)));
+		return (!leWeek.startUnlocked && leWeek.weekBefore.length > 0 && (!weekCompleted.exists(leWeek.weekBefore) || !weekCompleted.get(leWeek.weekBefore)))
+			|| !isWeekConditionMet(leWeek.unlockedAfter);
+	}
+
+	function isWeekConditionMet(condition:UnlockData):Bool
+	{
+		if(condition == null) return true;
+		var name:String = condition.save != null ? condition.save.trim() : '';
+		var field:String = condition.field != null ? condition.field.trim() : '';
+		if(name.length == 0 && field.length == 0) return true;
+		if(name.length == 0 || field.length == 0) return false;
+
+		var key:String = 'save_$name';
+		if(!variables.exists(key))
+		{
+			var save:FlxSave = new FlxSave();
+			save.bind(name, CoolUtil.getSavePath() + '/psychenginemods');
+			variables.set(key, save);
+		}
+		var save:FlxSave = variables.get(key);
+		return save.data != null && Reflect.field(save.data, field) == true;
 	}
 
 	function updateText()

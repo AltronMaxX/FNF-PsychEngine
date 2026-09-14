@@ -15,6 +15,8 @@ typedef WeekFile =
 	var weekName:String;
 	var startUnlocked:Bool;
 	var hiddenUntilUnlocked:Bool;
+	@:optional var showAfter:UnlockData;
+	@:optional var unlockedAfter:UnlockData;
 	var hideStoryMode:Bool;
 	var hideFreeplay:Bool;
 	var redirectToFreeplay:Bool;
@@ -55,6 +57,8 @@ class WeekData {
 	public var weekName:String;
 	public var startUnlocked:Bool;
 	public var hiddenUntilUnlocked:Bool;
+	public var showAfter:UnlockData = null;
+	public var unlockedAfter:UnlockData = null;
 	public var hideStoryMode:Bool;
 	public var hideFreeplay:Bool;
 	public var redirectToFreeplay:Bool = false;
@@ -77,6 +81,8 @@ class WeekData {
 			weekName: 'Custom Week',
 			startUnlocked: true,
 			hiddenUntilUnlocked: false,
+			showAfter: null,
+			unlockedAfter: null,
 			hideStoryMode: false,
 			hideFreeplay: false,
 			redirectToFreeplay: false,

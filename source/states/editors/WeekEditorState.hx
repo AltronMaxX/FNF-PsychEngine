@@ -104,13 +104,14 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 
 	var UI_box:PsychUIBox;
 	function addEditorBox() {
-		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 375, ['Other', 'Week']);
+		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 375, ['Other', 'Week', 'Unlocks']);
 		UI_box.x -= UI_box.width;
 		UI_box.y -= UI_box.height;
 		UI_box.scrollFactor.set();
 		add(UI_box);
 		addOtherUI();
 		addWeekUI();
+		addUnlocksUI();
 		
 		UI_box.selectedName = 'Week';
 		add(UI_box);
@@ -197,8 +198,7 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		lockedCheckbox.onClick = function()
 		{
 			weekFile.startUnlocked = !lockedCheckbox.checked;
-			lock.visible = lockedCheckbox.checked;
-			hiddenUntilUnlockCheckbox.alpha = 0.4 + 0.6 * (lockedCheckbox.checked ? 1 : 0);
+			updateLockPreview();
 			unsavedProgress = true;
 		};
 
@@ -234,6 +234,50 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		tab_group.add(redirectToFreeplayCheckbox);
 	}
 
+	var showAfterSaveInputText:PsychUIInputText;
+	var showAfterFieldInputText:PsychUIInputText;
+	var unlockedAfterSaveInputText:PsychUIInputText;
+	var unlockedAfterFieldInputText:PsychUIInputText;
+
+	function addUnlocksUI()
+	{
+		var tab_group = UI_box.getTab('Unlocks').menu;
+		showAfterSaveInputText = new PsychUIInputText(10, 80, 220, '', 8);
+		showAfterFieldInputText = new PsychUIInputText(10, 125, 220, '', 8);
+		unlockedAfterSaveInputText = new PsychUIInputText(10, 205, 220, '', 8);
+		unlockedAfterFieldInputText = new PsychUIInputText(10, 250, 220, '', 8);
+
+		tab_group.add(new FlxText(10, 12, 230, 'Story Mode only.\nThese conditions do not affect Freeplay.'));
+		tab_group.add(new FlxText(10, 45, 230, 'Show after (showAfter)'));
+		tab_group.add(new FlxText(10, 62, 230, 'Save name:'));
+		tab_group.add(new FlxText(10, 107, 230, 'Save field:'));
+		tab_group.add(new FlxText(10, 170, 230, 'Unlock after (unlockedAfter)'));
+		tab_group.add(new FlxText(10, 187, 230, 'Save name:'));
+		tab_group.add(new FlxText(10, 232, 230, 'Save field:'));
+		tab_group.add(new FlxText(10, 285, 230,
+			'Save field must be true.\nClear both inputs to remove a condition.\nExisting week locks still apply.'));
+		tab_group.add(showAfterSaveInputText);
+		tab_group.add(showAfterFieldInputText);
+		tab_group.add(unlockedAfterSaveInputText);
+		tab_group.add(unlockedAfterFieldInputText);
+	}
+
+	function readUnlockCondition(save:String, field:String):UnlockData
+	{
+		save = save.trim();
+		field = field.trim();
+		return save.length == 0 && field.length == 0 ? null : {save: save, field: field};
+	}
+
+	function updateLockPreview()
+	{
+		var condition:UnlockData = weekFile.unlockedAfter;
+		var canBeLocked:Bool = !weekFile.startUnlocked
+			|| (condition != null && readUnlockCondition(condition.save ?? '', condition.field ?? '') != null);
+		lock.visible = canBeLocked;
+		hiddenUntilUnlockCheckbox.alpha = 0.4 + 0.6 * (canBeLocked ? 1 : 0);
+	}
+
 	//Used on onCreate and when you load a week
 	function reloadAllShit() {
 		var weekString:String = "";
@@ -265,10 +309,13 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		if(weekFile.difficulties != null) difficultiesInputText.text = weekFile.difficulties;
 
 		lockedCheckbox.checked = !weekFile.startUnlocked;
-		lock.visible = lockedCheckbox.checked;
 		
 		hiddenUntilUnlockCheckbox.checked = weekFile.hiddenUntilUnlocked;
-		hiddenUntilUnlockCheckbox.alpha = 0.4 + 0.6 * (lockedCheckbox.checked ? 1 : 0);
+		showAfterSaveInputText.text = weekFile.showAfter != null ? weekFile.showAfter.save ?? '' : '';
+		showAfterFieldInputText.text = weekFile.showAfter != null ? weekFile.showAfter.field ?? '' : '';
+		unlockedAfterSaveInputText.text = weekFile.unlockedAfter != null ? weekFile.unlockedAfter.save ?? '' : '';
+		unlockedAfterFieldInputText.text = weekFile.unlockedAfter != null ? weekFile.unlockedAfter.field ?? '' : '';
+		updateLockPreview();
 
 		reloadBG();
 		reloadWeekThing();
@@ -424,6 +471,12 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 				unsavedProgress = true;
 			} else if(sender == difficultiesInputText) {
 				weekFile.difficulties = difficultiesInputText.text.trim();
+				unsavedProgress = true;
+			} else if(sender == showAfterSaveInputText || sender == showAfterFieldInputText
+				|| sender == unlockedAfterSaveInputText || sender == unlockedAfterFieldInputText) {
+				weekFile.showAfter = readUnlockCondition(showAfterSaveInputText.text, showAfterFieldInputText.text);
+				weekFile.unlockedAfter = readUnlockCondition(unlockedAfterSaveInputText.text, unlockedAfterFieldInputText.text);
+				updateLockPreview();
 				unsavedProgress = true;
 			}
 		}
