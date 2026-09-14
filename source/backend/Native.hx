@@ -11,6 +11,8 @@ import flixel.util.FlxColor;
 <target id="haxe">
 	<lib name="dwmapi.lib" if="windows"/>
 	<lib name="gdi32.lib" if="windows"/>
+	<lib name="advapi32.lib" if="windows"/>
+	<lib name="comctl32.lib" if="windows"/>
 </target>
 ')
 @:cppFileCode('
@@ -18,6 +20,7 @@ import flixel.util.FlxColor;
 #include <dwmapi.h>
 #include <winuser.h>
 #include <wingdi.h>
+#include <commctrl.h>
 
 #define attributeDarkMode 20
 #define attributeDarkModeFallback 19
@@ -53,6 +56,43 @@ void getHandle() {
 		curHandle = data.handle;
 	}
 }
+
+static void updateWindowTheme(HWND handle) {
+	DWORD lightTheme = 1;
+	DWORD size = sizeof(lightTheme);
+	BOOL darkMode = RegGetValueW(HKEY_CURRENT_USER,
+		L"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Themes\\\\Personalize",
+		L"AppsUseLightTheme", RRF_RT_REG_DWORD, NULL, &lightTheme, &size) == ERROR_SUCCESS && lightTheme == 0;
+
+	HIGHCONTRASTW highContrast = {sizeof(HIGHCONTRASTW)};
+	if (SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(highContrast), &highContrast, 0)
+		&& (highContrast.dwFlags & HCF_HIGHCONTRASTON)) {
+		darkMode = FALSE;
+	}
+
+	HRESULT result = DwmSetWindowAttribute(handle, attributeDarkMode, &darkMode, sizeof(darkMode));
+	if (FAILED(result)) {
+		result = DwmSetWindowAttribute(handle, attributeDarkModeFallback, &darkMode, sizeof(darkMode));
+	}
+	if (SUCCEEDED(result)) {
+		RedrawWindow(handle, NULL, NULL, RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW);
+	}
+}
+
+static LRESULT CALLBACK windowThemeProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam,
+	UINT_PTR subclassId, DWORD_PTR refData) {
+	if (message == WM_NCDESTROY) {
+		RemoveWindowSubclass(handle, windowThemeProc, subclassId);
+		if (curHandle == handle) curHandle = 0;
+		return DefSubclassProc(handle, message, wParam, lParam);
+	}
+
+	LRESULT result = DefSubclassProc(handle, message, wParam, lParam);
+	if (message == WM_SETTINGCHANGE || message == WM_THEMECHANGED) {
+		updateWindowTheme(handle);
+	}
+	return result;
+}
 ')
 #end
 class Native
@@ -79,6 +119,19 @@ class Native
 				#endif
 			);
 			#endif
+		');
+		#end
+	}
+
+	public static function followSystemTheme():Void
+	{
+		#if (cpp && windows)
+		untyped __cpp__('
+			getHandle();
+			if (curHandle != (HWND)0) {
+				SetWindowSubclass(curHandle, windowThemeProc, 1, 0);
+				updateWindowTheme(curHandle);
+			}
 		');
 		#end
 	}

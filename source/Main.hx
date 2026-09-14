@@ -73,6 +73,7 @@ class Main extends Sprite
 
 		#if (cpp && windows)
 		backend.Native.fixScaling();
+		backend.Native.followSystemTheme();
 		#end
 
 		// Credits to MAJigsaw77 (he's the og author for this code)
