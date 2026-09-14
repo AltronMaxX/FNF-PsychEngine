@@ -53,6 +53,8 @@ class StoryMenuState extends MusicBeatState
 		persistentUpdate = persistentDraw = true;
 		PlayState.isStoryMode = true;
 		WeekData.reloadWeekFiles(true);
+		Conductor.bpmChangeMap = [];
+		Conductor.bpm = TitleState.musicBPM;
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
@@ -198,6 +200,9 @@ class StoryMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		if(FlxG.sound.music != null)
+			Conductor.songPosition = FlxG.sound.music.time;
+
 		if(WeekData.weeksList.length < 1)
 		{
 			if (controls.BACK && !movedBack && !selectedWeek)
@@ -292,6 +297,19 @@ class StoryMenuState extends MusicBeatState
 
 		for (num => lock in grpLocks.members)
 			lock.y = grpWeekText.members[lock.ID].y + grpWeekText.members[lock.ID].height/2 - lock.height/2;
+	}
+
+	override function beatHit()
+	{
+		super.beatHit();
+
+		if(curBeat % 2 != 0 || selectedWeek || movedBack || grpWeekCharacters == null) return;
+
+		for (char in grpWeekCharacters.members)
+		{
+			if(char != null && char.visible && char.animation.curAnim != null && char.animation.curAnim.name == 'idle')
+				char.animation.play('idle', true);
+		}
 	}
 
 	var movedBack:Bool = false;
@@ -485,7 +503,10 @@ class StoryMenuState extends MusicBeatState
 	{
 		var weekArray:Array<String> = loadedWeeks[curWeek].weekCharacters;
 		for (i in 0...grpWeekCharacters.length) {
-			grpWeekCharacters.members[i].changeCharacter(weekArray[i]);
+			var char:MenuCharacter = grpWeekCharacters.members[i];
+			char.changeCharacter(weekArray[i]);
+			var idleAnim = char.animation.getByName('idle');
+			if(idleAnim != null) idleAnim.looped = false;
 		}
 
 		var leWeek:WeekData = loadedWeeks[curWeek];
