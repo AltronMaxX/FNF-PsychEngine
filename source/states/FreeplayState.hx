@@ -727,6 +727,7 @@ class FreeplayState extends MusicBeatState
 		//show only this diff songs
 		final sList = _songs[diffName];
 		if (!areInstancesEqual(sList, songs) && !unavailableDiffs.contains(futureDifficulty)) {
+			var scrollOffset:Float = lerpSelected - curSelected;
 			var lastSong = songs[curSelected];
 			curDifficulty = futureDifficulty;
 			createSongTexts();
@@ -755,6 +756,7 @@ class FreeplayState extends MusicBeatState
 				}
 			}
 			changeSelection(0, true, false);
+			lerpSelected = curSelected + scrollOffset;
 		}
 
 		curDifficulty = futureDifficulty;
@@ -799,6 +801,7 @@ class FreeplayState extends MusicBeatState
 		if (freeplayCharacters.length == 1)
 			return;
 
+		var scrollOffset:Float = lerpSelected - curSelected;
 		_songs = [];
 
 		unavailableDiffs = [];
@@ -857,6 +860,7 @@ class FreeplayState extends MusicBeatState
 		}
 		changeSelection();
 
+		lerpSelected = curSelected + scrollOffset;
 		diffSel.loadUnavailable(unavailableDiffs);
 		diffSel.changeSelection(curDifficulty);
 	}
