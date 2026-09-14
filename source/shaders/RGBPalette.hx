@@ -70,12 +70,12 @@ class RGBShaderReference
 	public var parent:RGBPalette;
 	private var _owner:FlxSprite;
 	private var _original:RGBPalette;
-	public function new(owner:FlxSprite, ref:RGBPalette)
+	public function new(owner:FlxSprite, ref:RGBPalette, enabled:Bool = true)
 	{
 		parent = ref;
 		_owner = owner;
 		_original = ref;
-		owner.shader = ref.shader;
+		this.enabled = enabled;
 
 		@:bypassAccessor
 		{
@@ -125,7 +125,7 @@ class RGBShaderReference
 			parent.g = _original.g;
 			parent.b = _original.b;
 			parent.mult = _original.mult;
-			_owner.shader = parent.shader;
+			if(enabled) _owner.shader = parent.shader;
 			//trace('created new shader');
 		}
 	}
