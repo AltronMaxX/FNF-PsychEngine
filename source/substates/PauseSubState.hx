@@ -62,7 +62,7 @@ class PauseSubState extends MusicBeatSubstate
 			}
 		}
 
-		if(PlayState.isStoryMode && difficultyChoices.length < 2) menuItemsOG.remove('Change Difficulty');
+		if(difficultyChoices.length < 2) menuItemsOG.remove('Change Difficulty');
 		difficultyChoices.push('BACK');
 
 		pauseMusic = new FlxSound();
