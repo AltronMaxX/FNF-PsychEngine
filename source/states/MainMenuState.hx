@@ -336,7 +336,7 @@ class MainMenuState extends MusicBeatState
 								PlayState.stageUI = 'normal';
 							}
 						case 'donate':
-							CoolUtil.browserLoad('https://www.donationalerts.com/r/vindix_1');
+							CoolUtil.browserLoad('https://dalink.to/vindix_1');
 							selectedSomethin = false;
 							item.visible = true;
 						default:
