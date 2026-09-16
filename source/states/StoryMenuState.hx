@@ -14,6 +14,7 @@ import objects.MenuCharacter;
 
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
+import states.FreeplayState.BubbleSelector;
 
 import backend.StageData;
 
@@ -41,6 +42,7 @@ class StoryMenuState extends MusicBeatState
 
 	var difficultySelectors:FlxGroup;
 	var sprDifficulty:FlxSprite;
+	var difficultyIndicator:BubbleSelector;
 	var leftArrow:FlxSprite;
 	var rightArrow:FlxSprite;
 
@@ -444,11 +446,37 @@ class StoryMenuState extends MusicBeatState
 			FlxTween.tween(sprDifficulty, {y: sprDifficulty.y + 30, alpha: 1}, 0.07);
 		}
 		lastDifficultyName = diff;
+		updateDifficultyIndicator();
 		updateText();
 
 		#if !switch
 		intendedScore = Highscore.getWeekScore(loadedWeeks[curWeek].fileName, curDifficulty);
 		#end
+	}
+
+	function updateDifficultyIndicator()
+	{
+		if(difficultyIndicator != null && difficultyIndicator.bubbleCount != Difficulty.list.length)
+		{
+			difficultySelectors.remove(difficultyIndicator, true);
+			difficultyIndicator.destroy();
+			difficultyIndicator = null;
+		}
+		if(Difficulty.list.length == 0) return;
+		if(difficultyIndicator == null)
+		{
+			difficultyIndicator = new BubbleSelector(Difficulty.list.length);
+			difficultySelectors.add(difficultyIndicator);
+		}
+		difficultyIndicator.changeSelection(curDifficulty);
+		positionDifficultyIndicator();
+	}
+
+	function positionDifficultyIndicator()
+	{
+		if(difficultyIndicator == null) return;
+		difficultyIndicator.x = (leftArrow.x + leftArrow.width + rightArrow.x - difficultyIndicator.width) / 2;
+		difficultyIndicator.y = leftArrow.y + 90;
 	}
 
 	var lerpScore:Int = 49324858;
@@ -501,6 +529,7 @@ class StoryMenuState extends MusicBeatState
 		{
 			curDifficulty = newPos;
 		}
+		updateDifficultyIndicator();
 		updateText();
 	}
 
