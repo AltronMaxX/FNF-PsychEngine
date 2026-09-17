@@ -1403,7 +1403,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 							curRenderedNotes.remove(closest, true);
 							addUndoAction(DELETE_NOTE, !closest.isEvent ? {notes: [closest]} : {events: [closest]});
 						}
-						if(selectedNotes.length == 1) onSelectNote();
+						onSelectNote();
 						forceDataUpdate = true;
 					}
 					else if(!holdingAlt && FlxG.mouse.y >= gridBg.y && FlxG.mouse.y < gridBg.y + gridBg.height) // Add note
@@ -2046,11 +2046,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					noteTypeDropDown.selectedLabel = '';
 				}
 			}
-			else //Event note
-			{
-				var eventNote:EventMetaNote = cast (selectedNotes[0], EventMetaNote);
-				updateSelectedEventText();
-			}
 		}
 		else if(selectedNotes.length > 1)
 		{
@@ -2062,6 +2057,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			value1InputText.text = '';
 			value2InputText.text = '';
 		}
+		updateSelectedEventText();
 		forceDataUpdate = true;
 	}
 
@@ -2078,6 +2074,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			if(myEvent != null)
 			{
 				var eventName:String = (myEvent[0] != null) ? myEvent[0] : '';
+				eventDropDown.selectedIndex = -1;
 				for (num => event in eventsList)
 				{
 					if(event[0] == eventName)
@@ -2091,6 +2088,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 		}
 		else selectedEventText.visible = false;
+		updateEventDescription();
+	}
+
+	function updateEventDescription()
+	{
+		var index:Int = eventDropDown.selectedIndex;
+		var event:Array<String> = eventsList != null && index >= 0 && index < eventsList.length ? eventsList[index] : null;
+		eventDescriptionText.text = event != null && event[1] != null ? event[1] : '';
 	}
 
 	function createGrids()
@@ -2304,6 +2309,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		trace('Note count: ${notes.length}');
 		trace('Events count: ${events.length}');
+		if(eventDropDown != null) onSelectNote();
 		loadSection();
 	}
 
@@ -2906,8 +2912,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		{
 			var eventSelected:Array<String> = eventsList[id];
 			var eventName:String = eventSelected[0];
-			var description:String = eventSelected[1];
-			eventDescriptionText.text = description;
+			updateEventDescription();
 			if(selectedNotes.length > 1)
 			{
 				for (note in selectedNotes)
@@ -2973,7 +2978,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			{
 				event.events.push([eventsList[Std.int(Math.max(eventDropDown.selectedIndex, 0))][0], value1InputText.text, value2InputText.text]);
 				event.updateEventText();
-				curEventSelected++;
+				curEventSelected = event.events.length - 1;
 			});
 		}, 20);
 		var leftButton:PsychUIButton = new PsychUIButton(objX2 + 80, objY, '<', function()
@@ -3118,6 +3123,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			}
 			selectedNotes = newSelected;
+			onSelectNote();
 			softReloadNotes();
 		}, 150);
 		
@@ -3287,6 +3293,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 				selectedNotes.remove(note);
 			}
+			onSelectNote();
 			softReloadNotes(true);
 		});
 		clearButton.normalStyle.bgColor = FlxColor.RED;
@@ -3408,6 +3415,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		// Event drop down
 		if(eventDropDown != null)
 		{
+			var lastSelected:String = eventsList != null && eventDropDown.selectedIndex >= 0 && eventDropDown.selectedIndex < eventsList.length
+				? eventsList[eventDropDown.selectedIndex][0] : '';
 			eventsList = [];
 			var eventFiles:Array<String> = loadFileList('custom_events/', ['.txt']);
 			for (file in eventFiles)
@@ -3429,9 +3438,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					displayEventsList.push('');
 			}
 
-			var lastSelected:String = eventDropDown.selectedLabel;
 			eventDropDown.list = displayEventsList;
-			eventDropDown.selectedLabel = lastSelected;
+			eventDropDown.selectedIndex = eventsList.map(event -> event[0]).indexOf(lastSelected);
+			updateSelectedEventText();
 		}
 
 		// Note type drop down
@@ -3903,6 +3912,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 									for (event in loadedEvents)
 										events.push(createEvent(event));
 	
+									onSelectNote();
 									softReloadNotes();
 									state.close();
 									showOutput('Events loaded successfully!');
@@ -4476,7 +4486,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					resetSelectedNotes();
 					selectedNotes = onlyNotes;
 					addUndoAction(SELECT_NOTE, {old: sel, current: selectedNotes.copy()});
-					if(selectedNotes.length == 1) onSelectNote();
+					onSelectNote();
 				}
 				softReloadNotes();
 			};
@@ -5488,6 +5498,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 			events.sort(PlayState.sortByTime);
 		}
+		onSelectNote();
 		softReloadNotes();
 	}
 
@@ -5528,6 +5539,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				}
 			}
 		}
+		onSelectNote();
 		softReloadNotes();
 	}
 

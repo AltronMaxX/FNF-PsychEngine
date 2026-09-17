@@ -68,8 +68,9 @@ class StoryMenuState extends MusicBeatState
 		{
 			FlxTransitionableState.skipNextTransIn = true;
 			persistentUpdate = false;
-			MusicBeatState.switchState(new states.ErrorState("NO WEEKS ADDED FOR STORY MODE\n\nPress ACCEPT to go to the Week Editor Menu.\nPress BACK to return to Main Menu.",
-				function() MusicBeatState.switchState(new states.editors.WeekEditorState()),
+			var editorHint:String = ClientPrefs.data.developerMode ? "Press ACCEPT to go to the Week Editor Menu.\n" : "";
+			MusicBeatState.switchState(new states.ErrorState("NO WEEKS ADDED FOR STORY MODE\n\n" + editorHint + "Press BACK to return to Main Menu.",
+				ClientPrefs.data.developerMode ? function() MusicBeatState.switchState(new states.editors.WeekEditorState()) : null,
 				function() MusicBeatState.switchState(new states.MainMenuState())));
 			return;
 		}

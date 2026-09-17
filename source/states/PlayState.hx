@@ -1705,7 +1705,7 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		if(!endingSong && !inCutscene && allowDebugKeys)
+		if(ClientPrefs.data.developerMode && !endingSong && !inCutscene && allowDebugKeys)
 		{
 			if (controls.justPressed('debug_1'))
 				openChartEditor();
