@@ -55,10 +55,7 @@ class NotesColorSubState extends MusicBeatSubstate
 		#end
 		
 		onPixel = PlayState.isPixelStage;
-		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.color = 0xFFEA71FD;
-		bg.screenCenter();
-		bg.antialiasing = ClientPrefs.data.antialiasing;
+		var bg:FlxSprite = OptionsSubState.createBackground();
 		add(bg);
 
 		var grid:FlxBackdrop = new FlxBackdrop(FlxGridOverlay.createGrid(80, 80, 160, 160, true, 0x33FFFFFF, 0x0));
@@ -146,7 +143,7 @@ class NotesColorSubState extends MusicBeatSubstate
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 
 		var tipX = 20;
-		var tipY = 660;
+		var tipY = OptionsSubState.fromPause ? 636 : 660;
 		var tip:FlxText = new FlxText(tipX, tipY, 0, Language.getPhrase('note_colors_tip', 'Press RESET to Reset the selected Note Part.'), 16);
 		tip.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		tip.borderSize = 2;
@@ -157,6 +154,12 @@ class NotesColorSubState extends MusicBeatSubstate
 		tipTxt.borderSize = 2;
 		add(tipTxt);
 		updateTip();
+		if (OptionsSubState.fromPause)
+		{
+			var warning = new FlxText(tipX, tipY + 48, 700, OptionsSubState.restartWarning(), 16);
+			warning.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.RED, LEFT, OUTLINE, FlxColor.BLACK);
+			add(warning);
+		}
 
 		controllerPointer = new FlxShapeCircle(0, 0, 20, {thickness: 0}, FlxColor.WHITE);
 		controllerPointer.offset.set(20, 20);
@@ -208,8 +211,8 @@ class NotesColorSubState extends MusicBeatSubstate
 			// changed to controller mid state
 			if(controls.controllerMode)
 			{
-				controllerPointer.x = FlxG.mouse.x;
-				controllerPointer.y = FlxG.mouse.y;
+				FlxG.mouse.getWorldPosition(camera, _mousePosition);
+				controllerPointer.setPosition(_mousePosition.x, _mousePosition.y);
 				changedToController = true;
 			}
 			// changed to keyboard mid state
@@ -496,25 +499,26 @@ class NotesColorSubState extends MusicBeatSubstate
 
 	function pointerOverlaps(obj:Dynamic)
 	{
-		if (!controls.controllerMode) return FlxG.mouse.overlaps(obj);
+		if (!controls.controllerMode) return FlxG.mouse.overlaps(obj, camera);
 		return FlxG.overlap(controllerPointer, obj);
 	}
 
 	function pointerX():Float
 	{
-		if (!controls.controllerMode) return FlxG.mouse.x;
+		if (!controls.controllerMode) return FlxG.mouse.getWorldPosition(camera, _mousePosition).x;
 		return controllerPointer.x;
 	}
 	function pointerY():Float
 	{
-		if (!controls.controllerMode) return FlxG.mouse.y;
+		if (!controls.controllerMode) return FlxG.mouse.getWorldPosition(camera, _mousePosition).y;
 		return controllerPointer.y;
 	}
 	function pointerFlxPoint():FlxPoint
 	{
-		if (!controls.controllerMode) return FlxG.mouse.getScreenPosition();
-		return controllerPointer.getScreenPosition();
+		if (!controls.controllerMode) return FlxG.mouse.getScreenPosition(camera);
+		return controllerPointer.getScreenPosition(null, camera);
 	}
+	var _mousePosition:FlxPoint = new FlxPoint();
 
 	function centerHexTypeLine()
 	{

@@ -11,6 +11,8 @@ class StrumNote extends FlxSprite
 	public var resetAnim:Float = 0;
 	private var noteData:Int = 0;
 	public var direction:Float = 90;
+	// Compensates for a note skin's rotation without changing modchart rotation.
+	public var holdCoverAngleOffset:Float = 0;
 	public var downScroll:Bool = false;
 	public var sustainReduce:Bool = true;
 	private var player:Int;
@@ -48,19 +50,33 @@ class StrumNote extends FlxSprite
 		noteData = leData;
 		this.player = player;
 		this.noteData = leData;
-		this.ID = noteData;
 		super(x, y);
+		this.ID = noteData;
 
-		var skin:String = null;
-		if(PlayState.SONG != null && PlayState.SONG.arrowSkin != null && PlayState.SONG.arrowSkin.length > 1) skin = PlayState.SONG.arrowSkin;
-		else skin = Note.defaultNoteSkin;
-
-		var customSkin:String = skin + Note.getNoteSkinPostfix();
-		if(Paths.fileExists('images/$customSkin.png', IMAGE)) skin = customSkin;
-
-		texture = skin; //Load texture and anims
+		texture = getDefaultTexture();
 		scrollFactor.set();
 		playAnim('static');
+	}
+
+	public static function getDefaultTexture(?noteSkin:String):String
+	{
+		var skin:String = PlayState.SONG != null && PlayState.SONG.arrowSkin != null && PlayState.SONG.arrowSkin.length > 1
+			? PlayState.SONG.arrowSkin : Note.defaultNoteSkin;
+		var customSkin:String = skin + Note.getNoteSkinPostfix(noteSkin);
+		var path:String = PlayState.isPixelStage ? 'pixelUI/' : '';
+		return Paths.fileExists('images/$path$customSkin.png', IMAGE) ? customSkin : skin;
+	}
+
+	public function refreshSkin(previousSkin:String)
+	{
+		if (texture != getDefaultTexture(previousSkin)) return;
+		var rgbEnabled:Bool = rgbShader.enabled;
+		var scaleX:Float = scale.x;
+		var scaleY:Float = scale.y;
+		texture = getDefaultTexture();
+		rgbShader.enabled = rgbEnabled;
+		scale.set(scaleX, scaleY);
+		updateHitbox();
 	}
 
 	public function reloadNote()

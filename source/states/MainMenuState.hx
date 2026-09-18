@@ -1,5 +1,7 @@
 package states;
 
+import backend.ClientPrefs.VisualOptions;
+
 import flixel.FlxObject;
 import flixel.effects.FlxFlicker;
 import lime.app.Application;
@@ -52,6 +54,7 @@ class MainMenuState extends MusicBeatState
 		Mods.pushGlobalMods();
 		#end
 		Mods.loadTopMod();
+		VisualOptions.reload();
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
@@ -328,7 +331,6 @@ class MainMenuState extends MusicBeatState
 							MusicBeatState.switchState(new CreditsState());
 						case 'options':
 							MusicBeatState.switchState(new OptionsState());
-							OptionsState.onPlayState = false;
 							if (PlayState.SONG != null)
 							{
 								PlayState.SONG.arrowSkin = null;

@@ -422,11 +422,24 @@ class Note extends FlxSprite
 			animation.play(animName, true);
 	}
 
-	public static function getNoteSkinPostfix()
+	public function refreshSkin()
 	{
+		var rgbEnabled:Bool = rgbShader.enabled;
+		var scaleX:Float = scale.x;
+		var scaleY:Float = scale.y;
+		var sustainHeight:Float = frameHeight * scaleY;
+		reloadNote(texture);
+		rgbShader.enabled = rgbEnabled;
+		scale.set(scaleX, isSustainNote ? sustainHeight / frameHeight : scaleY);
+		updateHitbox();
+	}
+
+	public static function getNoteSkinPostfix(?noteSkin:String)
+	{
+		if (noteSkin == null) noteSkin = ClientPrefs.data.noteSkin;
 		var skin:String = '';
-		if(ClientPrefs.data.noteSkin != ClientPrefs.defaultData.noteSkin)
-			skin = '-' + ClientPrefs.data.noteSkin.trim().toLowerCase().replace(' ', '_');
+		if(noteSkin != ClientPrefs.defaultData.noteSkin)
+			skin = '-' + noteSkin.trim().toLowerCase().replace(' ', '_');
 		return skin;
 	}
 

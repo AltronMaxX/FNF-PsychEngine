@@ -5,6 +5,8 @@ import backend.StageData;
 import backend.WeekData;
 import backend.Song;
 import backend.Rating;
+import backend.ClientPrefs.VisualOptions;
+import options.OptionsSubState.OptionsSession;
 
 import flixel.FlxBasic;
 import flixel.FlxObject;
@@ -37,6 +39,7 @@ import shaders.ErrorHandledShader;
 
 import objects.VideoSprite;
 import objects.Note.EventNote;
+import objects.NoteSplash.NoteHoldCover;
 import objects.*;
 import states.stages.*;
 import states.stages.objects.*;
@@ -165,6 +168,7 @@ class PlayState extends MusicBeatState
 	public var strumLineNotes:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
 	public var opponentStrums:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
 	public var playerStrums:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
+	public var grpNoteHoldCovers:FlxTypedGroup<NoteHoldCover> = new FlxTypedGroup<NoteHoldCover>();
 	public var grpNoteSplashes:FlxTypedGroup<NoteSplash> = new FlxTypedGroup<NoteSplash>();
 
 	public var camZooming:Bool = false;
@@ -268,6 +272,7 @@ class PlayState extends MusicBeatState
 	public static var nextReloadAll:Bool = false;
 	override public function create()
 	{
+		VisualOptions.reload();
 		//trace('Playback Rate: ' + playbackRate);
 		_lastLoadedModDirectory = Mods.currentModDirectory;
 		Paths.clearStoredMemory();
@@ -506,6 +511,7 @@ class PlayState extends MusicBeatState
 
 		generateSong();
 
+		noteGroup.add(grpNoteHoldCovers);
 		noteGroup.add(grpNoteSplashes);
 
 		camFollow = new FlxObject();
@@ -632,6 +638,9 @@ class PlayState extends MusicBeatState
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
+		if (isPixelStage) Paths.getSparrowAtlas('holdCovers/pixelNoteHoldCover');
+		else
+			for (color in ['Purple', 'Blue', 'Green', 'Red']) Paths.getSparrowAtlas('holdCovers/holdCover' + color);
 
 		super.create();
 		Paths.clearUnusedMemory();
@@ -1096,6 +1105,7 @@ class PlayState extends MusicBeatState
 
 	public function clearNotesBefore(time:Float)
 	{
+		grpNoteHoldCovers.forEachAlive(cover -> cover.kill());
 		var i:Int = unspawnNotes.length - 1;
 		while (i >= 0) {
 			var daNote:Note = unspawnNotes[i];
@@ -1196,6 +1206,7 @@ class PlayState extends MusicBeatState
 
 	public function setSongTime(time:Float)
 	{
+		grpNoteHoldCovers.forEachAlive(cover -> cover.kill());
 		FlxG.sound.music.pause();
 		vocals.pause();
 		opponentVocals.pause();
@@ -1663,6 +1674,59 @@ class PlayState extends MusicBeatState
 		}
 	}
 
+	public function applyOptions(session:OptionsSession)
+	{
+		var changed:Array<String> = session.changedFields();
+		if (changed.contains('noteSkin') || changed.contains('splashAlpha'))
+		{
+			var oldAlpha:Float = session.previousValue('splashAlpha');
+			for (collection in [notes.members, unspawnNotes])
+				for (note in collection)
+				{
+					if (note == null) continue;
+					if (changed.contains('noteSkin')) note.refreshSkin();
+					if (changed.contains('splashAlpha') && note.noteSplashData.a == oldAlpha)
+						note.noteSplashData.a = ClientPrefs.data.splashAlpha;
+				}
+			if (changed.contains('noteSkin'))
+				for (strum in strumLineNotes) strum.refreshSkin(session.previousValue('noteSkin'));
+		}
+		if (changed.contains('holdCoverAlpha') || changed.contains('holdSplashAlpha') || changed.contains('noteSkin'))
+			grpNoteHoldCovers.forEachAlive(cover -> cover.refreshAppearance());
+		if (changed.contains('timeBarType'))
+		{
+			var songTitle:Bool = ClientPrefs.data.timeBarType == 'Song Name';
+			timeTxt.visible = timeBar.visible = updateTime = ClientPrefs.data.timeBarType != 'Disabled';
+			timeTxt.size = songTitle ? 24 : 32;
+			timeTxt.y += (songTitle ? 3 : 0) - (session.previousValue('timeBarType') == 'Song Name' ? 3 : 0);
+			var elapsedTime:Float = Math.max(0, Conductor.songPosition - ClientPrefs.data.noteOffset);
+			var time:Float = ClientPrefs.data.timeBarType == 'Time Elapsed' ? elapsedTime : songLength - elapsedTime;
+			timeTxt.text = songTitle ? SONG.song : FlxStringUtil.formatTime(Math.max(0, Math.floor(time / 1000)), false);
+			if (!startingSong) timeTxt.alpha = timeBar.alpha = 1;
+		}
+		if (changed.contains('healthBarAlpha'))
+			healthBar.alpha = iconP1.alpha = iconP2.alpha = ClientPrefs.data.healthBarAlpha;
+		if (changed.contains('scoreZoom') && !ClientPrefs.data.scoreZoom && scoreTxtTween != null)
+		{
+			scoreTxtTween.cancel();
+			scoreTxtTween = null;
+			scoreTxt.scale.set(1, 1);
+		}
+		if (changed.contains('safeFrames'))
+			Conductor.safeZoneOffset = ClientPrefs.data.safeFrames / 60 * 1000 * playbackRate;
+		for (rating in ratingsData)
+			if (changed.contains(rating.name + 'Window'))
+				rating.hitWindow = Reflect.field(ClientPrefs.data, rating.name + 'Window');
+		#if LUA_ALLOWED
+		for (lua in luaArray) lua.updateClientPrefs(changed);
+		#end
+		if (changed.length > 0) callOnScripts('onOptionsChanged', [changed]);
+		#if DISCORD_ALLOWED
+		if (ClientPrefs.data.discordRPC && autoUpdateRPC)
+			DiscordClient.changePresence(detailsPausedText, SONG.song + ' (' + storyDifficultyText + ')', iconP2.getCharacter());
+		#end
+	}
+
 	public var paused:Bool = false;
 	public var canReset:Bool = true;
 	var startedCountdown:Bool = false;
@@ -1672,6 +1736,7 @@ class PlayState extends MusicBeatState
 
 	override public function update(elapsed:Float)
 	{
+		if (paused) return;
 		if(!inCutscene && !paused && !freezeCamera) {
 			FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
 			var idleAnim:Bool = (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));
@@ -1867,6 +1932,18 @@ class PlayState extends MusicBeatState
 
 		setOnScripts('botPlay', cpuControlled);
 		callOnScripts('onUpdatePost', [elapsed]);
+		if (!paused)
+			grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
+			{
+				if (isDead || endingSong) cover.kill();
+				else
+				{
+					var note:Note = cover.note;
+					var held:Bool = note == null || !note.mustPress || cpuControlled || controls.pressed(keysArray[note.noteData]);
+					cover.advance(Conductor.songPosition, held);
+					cover.refreshAppearance();
+				}
+			});
 	}
 
 	// Health icon updaters
@@ -2530,6 +2607,7 @@ class PlayState extends MusicBeatState
 	}
 
 	public function KillNotes() {
+		grpNoteHoldCovers.forEachAlive(cover -> cover.kill());
 		while(notes.length > 0) {
 			var daNote:Note = notes.members[0];
 			daNote.active = false;
@@ -2896,6 +2974,10 @@ class PlayState extends MusicBeatState
 				invalidateNote(note);
 		});
 
+		grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
+		{
+			if (cover.note == daNote || cover.note == daNote.parent) cover.kill();
+		});
 		noteMissCommon(daNote.noteData, daNote);
 		stagesFunc(function(stage:BaseStage) stage.noteMiss(daNote));
 		var result:Dynamic = callOnLuas('noteMiss', [notes.members.indexOf(daNote), daNote.noteData, daNote.noteType, daNote.isSustainNote]);
@@ -3033,6 +3115,7 @@ class PlayState extends MusicBeatState
 		if(opponentVocals.length <= 0) vocals.volume = 1;
 		strumPlayAnim(true, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
 		note.hitByOpponent = true;
+		spawnNoteHoldCover(note);
 		
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
@@ -3116,6 +3199,7 @@ class PlayState extends MusicBeatState
 			var gainHealth:Bool = true; // prevent health gain, *if* sustains are treated as a singular note
 			if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
 			if (gainHealth) health += note.hitHealth * healthGain;
+			spawnNoteHoldCover(note);
 
 		}
 		else //Notes that count as a miss if you hit them (Hurt notes for example)
@@ -3141,6 +3225,19 @@ class PlayState extends MusicBeatState
 		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
 		if(!note.isSustainNote) invalidateNote(note);
+	}
+
+	public function spawnNoteHoldCover(note:Note)
+	{
+		if (note.isSustainNote || note.sustainLength <= 0 || note.hitCausesMiss || note.blockHit) return;
+		var arrow:StrumNote = (note.mustPress ? playerStrums : opponentStrums).members[note.noteData];
+		if (arrow == null) return;
+		grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
+		{
+			if (cover.babyArrow == arrow && !cover.ending) cover.kill();
+		});
+		var cover:NoteHoldCover = grpNoteHoldCovers.recycle(NoteHoldCover);
+		cover.start(arrow, note);
 	}
 
 	public function invalidateNote(note:Note):Void {

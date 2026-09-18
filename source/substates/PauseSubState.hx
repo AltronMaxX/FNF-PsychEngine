@@ -9,7 +9,7 @@ import flixel.util.FlxStringUtil;
 
 import states.StoryMenuState;
 import states.FreeplayState;
-import options.OptionsState;
+import options.OptionsSubState;
 
 class PauseSubState extends MusicBeatSubstate
 {
@@ -30,6 +30,12 @@ class PauseSubState extends MusicBeatSubstate
 	var missingText:FlxText;
 
 	public static var songName:String = null;
+	public function new()
+	{
+		super();
+		persistentUpdate = false;
+		persistentDraw = true;
+	}
 
 	override function create()
 	{
@@ -76,6 +82,7 @@ class PauseSubState extends MusicBeatSubstate
 		pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
 
 		FlxG.sound.list.add(pauseMusic);
+		FlxG.signals.preUpdate.add(updatePauseMusicVolume);
 
 		var bg:FlxSprite = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
 		bg.scale.set(FlxG.width, FlxG.height);
@@ -203,6 +210,23 @@ class PauseSubState extends MusicBeatSubstate
 
 		super.create();
 	}
+
+	function openOptions()
+	{
+		openSubState(new OptionsSubState(this));
+	}
+
+	public function reloadPauseMusic()
+	{
+		var volume:Float = pauseMusic.volume;
+		pauseMusic.stop();
+		var pauseSong:String = getPauseSong();
+		if (pauseSong != null)
+			pauseMusic.loadEmbedded(Paths.music(pauseSong), true, true);
+		pauseMusic.volume = volume;
+		if (pauseSong != null)
+			pauseMusic.play();
+	}
 	
 	function getPauseSong()
 	{
@@ -215,11 +239,15 @@ class PauseSubState extends MusicBeatSubstate
 
 	var holdTime:Float = 0;
 	var cantUnpause:Float = 0.1;
+	function updatePauseMusicVolume()
+	{
+		if (pauseMusic.volume < 0.5)
+			pauseMusic.volume = Math.min(0.5, pauseMusic.volume + 0.01 * FlxG.elapsed);
+	}
+
 	override function update(elapsed:Float)
 	{
 		cantUnpause -= elapsed;
-		if (pauseMusic.volume < 0.5)
-			pauseMusic.volume += 0.01 * elapsed;
 
 		super.update(elapsed);
 
@@ -369,17 +397,7 @@ class PauseSubState extends MusicBeatSubstate
 					PlayState.instance.botplayTxt.alpha = 1;
 					PlayState.instance.botplaySine = 0;
 				case 'Options':
-					PlayState.instance.paused = true; // For lua
-					PlayState.instance.vocals.volume = 0;
-					PlayState.instance.canResync = false;
-					MusicBeatState.switchState(new OptionsState());
-					if(ClientPrefs.data.pauseMusic != 'None')
-					{
-						FlxG.sound.playMusic(Paths.music(Paths.formatToSongPath(ClientPrefs.data.pauseMusic)), pauseMusic.volume);
-						FlxTween.tween(FlxG.sound.music, {volume: 1}, 0.8);
-						FlxG.sound.music.time = pauseMusic.time;
-					}
-					OptionsState.onPlayState = true;
+					openOptions();
 				case "Exit to menu":
 					#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
 					PlayState.deathCounter = 0;
@@ -428,6 +446,7 @@ class PauseSubState extends MusicBeatSubstate
 
 	override function destroy()
 	{
+		FlxG.signals.preUpdate.remove(updatePauseMusicVolume);
 		pauseMusic.destroy();
 		super.destroy();
 	}

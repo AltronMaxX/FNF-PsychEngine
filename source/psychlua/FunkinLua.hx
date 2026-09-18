@@ -180,30 +180,9 @@ class FunkinLua {
 			set('gfName', game.gf != null ? game.gf.curCharacter : PlayState.SONG.gfVersion);
 		}
 
-		// Other settings
-		set('downscroll', ClientPrefs.data.downScroll);
-		set('middlescroll', ClientPrefs.data.middleScroll);
-		set('framerate', ClientPrefs.data.framerate);
-		set('ghostTapping', ClientPrefs.data.ghostTapping);
-		set('hideHud', ClientPrefs.data.hideHud);
-		set('timeBarType', ClientPrefs.data.timeBarType);
-		set('scoreZoom', ClientPrefs.data.scoreZoom);
-		set('cameraZoomOnBeat', ClientPrefs.data.camZooms);
-		set('flashingLights', ClientPrefs.data.flashing);
-		set('noteOffset', ClientPrefs.data.noteOffset);
-		set('healthBarAlpha', ClientPrefs.data.healthBarAlpha);
-		set('noResetButton', ClientPrefs.data.noReset);
-		set('lowQuality', ClientPrefs.data.lowQuality);
-		set('shadersEnabled', ClientPrefs.data.shaders);
+		updateClientPrefs();
 		set('scriptName', scriptName);
 		set('currentModDirectory', Mods.currentModDirectory);
-
-		// Noteskin/Splash
-		set('noteSkin', ClientPrefs.data.noteSkin);
-		set('noteSkinPostfix', Note.getNoteSkinPostfix());
-		set('splashSkin', ClientPrefs.data.splashSkin);
-		set('splashSkinPostfix', NoteSplash.getSplashSkinPostfix());
-		set('splashAlpha', ClientPrefs.data.splashAlpha);
 
 		// build target (windows, mac, linux, etc.)
 		set('buildTarget', LuaUtils.getBuildTarget());
@@ -1862,6 +1841,33 @@ class FunkinLua {
 		luaTrace('This platform doesn\'t support Runtime Shaders!', false, false, FlxColor.RED);
 		#end
 		return false;
+	}
+
+	public function updateClientPrefs(?changed:Array<String>)
+	{
+		if (changed == null || changed.contains('downScroll')) set('downscroll', ClientPrefs.data.downScroll);
+		if (changed == null || changed.contains('middleScroll')) set('middlescroll', ClientPrefs.data.middleScroll);
+		if (changed == null || changed.contains('framerate')) set('framerate', ClientPrefs.data.framerate);
+		if (changed == null || changed.contains('ghostTapping')) set('ghostTapping', ClientPrefs.data.ghostTapping);
+		if (changed == null || changed.contains('hideHud')) set('hideHud', ClientPrefs.data.hideHud);
+		if (changed == null || changed.contains('timeBarType')) set('timeBarType', ClientPrefs.data.timeBarType);
+		if (changed == null || changed.contains('scoreZoom')) set('scoreZoom', ClientPrefs.data.scoreZoom);
+		if (changed == null || changed.contains('camZooms')) set('cameraZoomOnBeat', ClientPrefs.data.camZooms);
+		if (changed == null || changed.contains('flashing')) set('flashingLights', ClientPrefs.data.flashing);
+		if (changed == null || changed.contains('noteOffset')) set('noteOffset', ClientPrefs.data.noteOffset);
+		if (changed == null || changed.contains('healthBarAlpha')) set('healthBarAlpha', ClientPrefs.data.healthBarAlpha);
+		if (changed == null || changed.contains('noReset')) set('noResetButton', ClientPrefs.data.noReset);
+		if (changed == null || changed.contains('lowQuality')) set('lowQuality', ClientPrefs.data.lowQuality);
+		if (changed == null || changed.contains('shaders')) set('shadersEnabled', ClientPrefs.data.shaders);
+
+		if (changed == null || changed.contains('noteSkin')) set('noteSkin', ClientPrefs.data.noteSkin);
+		if (changed == null || changed.contains('noteSkin')) set('noteSkinPostfix', Note.getNoteSkinPostfix());
+		if (changed == null || changed.contains('splashSkin')) set('splashSkin', ClientPrefs.data.splashSkin);
+		if (changed == null || changed.contains('splashSkin')) set('splashSkinPostfix', NoteSplash.getSplashSkinPostfix());
+		if (changed == null || changed.contains('splashAlpha')) set('splashAlpha', ClientPrefs.data.splashAlpha);
+		if (changed == null || changed.contains('holdCoverAlpha')) set('holdCoverAlpha', ClientPrefs.data.holdCoverAlpha);
+		if (changed == null || changed.contains('holdSplashAlpha')) set('holdSplashAlpha', ClientPrefs.data.holdSplashAlpha);
+		if (changed == null) set('nativeHoldCovers', true);
 	}
 }
 #end

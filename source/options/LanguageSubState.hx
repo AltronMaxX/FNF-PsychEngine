@@ -13,10 +13,7 @@ class LanguageSubState extends MusicBeatSubstate
 	{
 		super();
 
-		var bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.color = 0xFFea71fd;
-		bg.antialiasing = ClientPrefs.data.antialiasing;
-		bg.screenCenter();
+		var bg = OptionsSubState.createBackground();
 		add(bg);
 		add(grpLanguages);
 
@@ -92,9 +89,14 @@ class LanguageSubState extends MusicBeatSubstate
 			grpLanguages.add(text);
 		}
 		changeSelected();
+		if (OptionsSubState.fromPause)
+		{
+			var warning = new FlxText(40, FlxG.height - 45, FlxG.width - 80, OptionsSubState.restartWarning(), 20);
+			warning.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
+			add(warning);
+		}
 	}
 
-	var changedLanguage:Bool = false;
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
@@ -109,14 +111,9 @@ class LanguageSubState extends MusicBeatSubstate
 
 		if(controls.BACK)
 		{
-			if(changedLanguage)
-			{
-				FlxTransitionableState.skipNextTransIn = true;
-				FlxTransitionableState.skipNextTransOut = true;
-				MusicBeatState.resetState();
-			}
-			else close();
+			close();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
+			return;
 		}
 
 		if(controls.ACCEPT)
@@ -126,7 +123,6 @@ class LanguageSubState extends MusicBeatSubstate
 			//trace(ClientPrefs.data.language);
 			ClientPrefs.saveSettings();
 			Language.reloadPhrases();
-			changedLanguage = true;
 		}
 	}
 

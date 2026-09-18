@@ -1,5 +1,7 @@
 package states;
 
+import backend.ClientPrefs.VisualOptions;
+
 import lime.app.Future;
 import sys.thread.FixedThreadPool;
 import haxe.Json;
@@ -363,6 +365,7 @@ class LoadingState extends MusicBeatState
 		if (weekDir != null && weekDir.length > 0 && weekDir != '') directory = weekDir;
 
 		Paths.setCurrentLevel(directory);
+		VisualOptions.reload();
 		trace('Setting asset folder to ' + directory);
 	}
 
@@ -421,6 +424,7 @@ class LoadingState extends MusicBeatState
 
 	public static function prepareToSong()
 	{
+		VisualOptions.reload();
 		if(PlayState.SONG == null)
 		{
 			imagesToPrepare = [];

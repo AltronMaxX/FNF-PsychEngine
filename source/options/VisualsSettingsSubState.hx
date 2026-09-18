@@ -1,8 +1,11 @@
 package options;
 
+import backend.ClientPrefs.VisualOptions;
+
 import objects.Note;
 import objects.StrumNote;
 import objects.NoteSplash;
+import objects.NoteSplash.NoteHoldCover;
 import objects.Alphabet;
 
 class VisualsSettingsSubState extends BaseOptionsMenu
@@ -10,15 +13,18 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 	var noteOptionID:Int = -1;
 	var notes:FlxTypedGroup<StrumNote>;
 	var splashes:FlxTypedGroup<NoteSplash>;
+	var holdCovers:FlxTypedGroup<NoteHoldCover>;
 	var noteY:Float = 90;
 	public function new()
 	{
+		VisualOptions.reload(true);
 		title = Language.getPhrase('visuals_menu', 'Visuals Settings');
 		rpcTitle = 'Visuals Settings Menu'; //for Discord Rich Presence
 
 		// for note skins and splash skins
 		notes = new FlxTypedGroup<StrumNote>();
 		splashes = new FlxTypedGroup<NoteSplash>();
+		holdCovers = new FlxTypedGroup<NoteHoldCover>();
 		for (i in 0...Note.colArray.length)
 		{
 			var note:StrumNote = new StrumNote(370 + (560 / Note.colArray.length) * i, -200, i, 0);
@@ -31,16 +37,18 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			splash.ID = i;
 			splash.kill();
 			splashes.add(splash);
+
+			var cover:NoteHoldCover = new NoteHoldCover();
+			cover.inEditor = true;
+			cover.ID = i;
+			cover.kill();
+			holdCovers.add(cover);
 		}
 
 		// options
-		var noteSkins:Array<String> = Mods.mergeAllTextsNamed('images/noteSkins/list.txt');
+		var noteSkins:Array<String> = VisualOptions.getValues('noteSkin');
 		if(noteSkins.length > 0)
 		{
-			if(!noteSkins.contains(ClientPrefs.data.noteSkin))
-				ClientPrefs.data.noteSkin = ClientPrefs.defaultData.noteSkin; //Reset to default if saved noteskin couldnt be found
-
-			noteSkins.insert(0, ClientPrefs.defaultData.noteSkin); //Default skin always comes first
 			var option:Option = new Option('Note Skins:',
 				"Select your prefered Note skin.",
 				'noteSkin',
@@ -51,13 +59,9 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			noteOptionID = optionsArray.length - 1;
 		}
 		
-		var noteSplashes:Array<String> = Mods.mergeAllTextsNamed('images/noteSplashes/list.txt');
+		var noteSplashes:Array<String> = VisualOptions.getValues('splashSkin');
 		if(noteSplashes.length > 0)
 		{
-			if(!noteSplashes.contains(ClientPrefs.data.splashSkin))
-				ClientPrefs.data.splashSkin = ClientPrefs.defaultData.splashSkin; //Reset to default if saved splashskin couldnt be found
-
-			noteSplashes.insert(0, ClientPrefs.defaultData.splashSkin); //Default skin always comes first
 			var option:Option = new Option('Note Splashes:',
 				"Select your prefered Note Splash variation.",
 				'splashSkin',
@@ -78,6 +82,30 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		option.decimals = 1;
 		addOption(option);
 		option.onChange = playNoteSplashes;
+
+		var option:Option = new Option('Note Hold Covers Opacity',
+			'Opacity of the effects shown while holding long notes.',
+			'holdCoverAlpha',
+			PERCENT);
+		option.scrollSpeed = 1.6;
+		option.minValue = 0;
+		option.maxValue = 1;
+		option.changeValue = 0.1;
+		option.decimals = 1;
+		addOption(option);
+		option.onChange = playHoldCovers;
+
+		var option:Option = new Option('Note Hold Splashes Opacity',
+			'Opacity of the splashes shown after successfully holding long notes.',
+			'holdSplashAlpha',
+			PERCENT);
+		option.scrollSpeed = 1.6;
+		option.minValue = 0;
+		option.maxValue = 1;
+		option.changeValue = 0.1;
+		option.decimals = 1;
+		addOption(option);
+		option.onChange = playHoldCovers;
 
 		var option:Option = new Option('Hide HUD',
 			'If checked, hides most HUD elements.',
@@ -134,7 +162,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			"What song do you prefer for the Pause Screen?",
 			'pauseMusic',
 			STRING,
-			['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)']);
+			VisualOptions.getValues('pauseMusic'));
 		addOption(option);
 		option.onChange = onChangePauseMusic;
 		
@@ -151,6 +179,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			"Uncheck this to prevent accidental leaks, it will hide the Application from your \"Playing\" box on Discord",
 			'discordRPC',
 			BOOL);
+		option.onChange = DiscordClient.check;
 		addOption(option);
 		#end
 
@@ -163,16 +192,19 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		super();
 		add(notes);
 		add(splashes);
+		add(holdCovers);
 	}
 
 	var notesShown:Bool = false;
 	override function changeSelection(change:Int = 0)
 	{
 		super.changeSelection(change);
+		if (curOption.variable != 'holdCoverAlpha' && curOption.variable != 'holdSplashAlpha')
+			holdCovers.forEachAlive(cover -> cover.kill());
 		
 		switch(curOption.variable)
 		{
-			case 'noteSkin', 'splashSkin', 'splashAlpha':
+			case 'noteSkin', 'splashSkin', 'splashAlpha', 'holdCoverAlpha', 'holdSplashAlpha':
 				if(!notesShown)
 				{
 					for (note in notes.members)
@@ -183,6 +215,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 				}
 				notesShown = true;
 				if(curOption.variable.startsWith('splash') && Math.abs(notes.members[0].y - noteY) < 25) playNoteSplashes();
+				if (curOption.variable == 'holdCoverAlpha' || curOption.variable == 'holdSplashAlpha') playHoldCovers();
 
 			default:
 				if(notesShown) 
@@ -200,6 +233,11 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 	var changedMusic:Bool = false;
 	function onChangePauseMusic()
 	{
+		if (OptionsSubState.fromPause)
+		{
+			OptionsSubState.instance.previewPauseMusic();
+			return;
+		}
 		if(ClientPrefs.data.pauseMusic == 'None')
 			FlxG.sound.music.volume = 0;
 		else
@@ -235,6 +273,15 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			splash.loadSplash(skin);
 
 		playNoteSplashes();
+	}
+
+	function playHoldCovers()
+	{
+		for (cover in holdCovers)
+		{
+			cover.start(notes.members[cover.ID]);
+			if (curOption.variable == 'holdSplashAlpha') cover.finishHold();
+		}
 	}
 
 	function playNoteSplashes()
@@ -282,7 +329,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 
 	override function destroy()
 	{
-		if(changedMusic && !OptionsState.onPlayState) FlxG.sound.playMusic(Paths.music('freakyMenu'), 1, true);
+		if(changedMusic && !OptionsSubState.fromPause) FlxG.sound.playMusic(Paths.music('freakyMenu'), 1, true);
 		Note.globalRgbShaders = [];
 		super.destroy();
 	}

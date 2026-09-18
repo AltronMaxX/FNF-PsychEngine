@@ -38,10 +38,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		DiscordClient.changePresence(rpcTitle, null);
 		#end
 		
-		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.color = 0xFFea71fd;
-		bg.screenCenter();
-		bg.antialiasing = ClientPrefs.data.antialiasing;
+		bg = OptionsSubState.createBackground();
 		add(bg);
 
 		// avoids lagspikes while scrolling through menus!
@@ -142,6 +139,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		if (controls.BACK) {
 			close();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
+			return;
 		}
 
 		if(nextAccept <= 0)
@@ -476,9 +474,17 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, optionsArray.length - 1);
 
+		descText.clearFormats();
 		descText.text = optionsArray[curSelected].description;
+		if (OptionsSubState.fromPause && optionsArray[curSelected].requiresRestart)
+		{
+			var start:Int = descText.text.length;
+			descText.text += '\n' + OptionsSubState.restartWarning();
+			descText.addFormat(new flixel.text.FlxText.FlxTextFormat(FlxColor.RED), start, descText.text.length);
+		}
 		descText.screenCenter(Y);
 		descText.y += 270;
+		descText.y = Math.min(descText.y, FlxG.height - descText.height - 20);
 
 		for (num => item in grpOptions.members)
 		{

@@ -405,16 +405,22 @@ class NoteOffsetState extends MusicBeatState
 			if(beatTween != null) beatTween.cancel();
 
 			persistentUpdate = false;
-			MusicBeatState.switchState(new options.OptionsState());
-			if(OptionsState.onPlayState)
+			ClientPrefs.saveSettings();
+			if(OptionsSubState.returnToPlayState)
 			{
-				if(ClientPrefs.data.pauseMusic != 'None')
-					FlxG.sound.playMusic(Paths.music(Paths.formatToSongPath(ClientPrefs.data.pauseMusic)));
-				else
-					FlxG.sound.music.volume = 0;
+				OptionsSubState.returnToPlayState = false;
+				PlayState.nextReloadAll = true;
+				StageData.loadDirectory(PlayState.SONG);
+				FlxG.sound.music.stop();
+				LoadingState.loadAndSwitchState(new PlayState());
 			}
-			else FlxG.sound.playMusic(Paths.music('freakyMenu'));
+			else
+			{
+				MusicBeatState.switchState(new OptionsState());
+				FlxG.sound.playMusic(Paths.music('freakyMenu'));
+			}
 			FlxG.mouse.visible = false;
+			return;
 		}
 
 		Conductor.songPosition = FlxG.sound.music.time;

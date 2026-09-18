@@ -1,5 +1,8 @@
 package options;
 
+import backend.ClientPrefs.VisualOptions;
+import options.OptionsSubState.OptionsSession;
+
 typedef Keybind = {
 	keyboard:String,
 	gamepad:String
@@ -25,6 +28,9 @@ class Option
 
 	public var scrollSpeed:Float = 50; //Only works on int/float, defines how fast it scrolls per second while holding left/right
 	public var variable(default, null):String = null; //Variable from ClientPrefs.hx
+	public var requiresRestart(get, never):Bool;
+	function get_requiresRestart():Bool
+		return OptionsSession.requiresRestart(variable);
 	public var defaultValue:Dynamic = null;
 
 	public var curOption:Int = 0; //Don't change this
@@ -77,6 +83,8 @@ class Option
 				defaultKeys = {gamepad: 'NONE', keyboard: 'NONE'};
 				keys = {gamepad: 'NONE', keyboard: 'NONE'};
 		}
+		var visualDefault:String = VisualOptions.getDefault(variable);
+		if (visualDefault != null) defaultValue = visualDefault;
 
 		try
 		{
@@ -97,7 +105,7 @@ class Option
 
 	public function change()
 	{
-		//nothing lol
+		VisualOptions.rememberSelection(variable);
 		if(onChange != null)
 			onChange();
 	}

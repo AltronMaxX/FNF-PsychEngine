@@ -1,5 +1,8 @@
 package backend;
 
+import haxe.Json;
+import openfl.utils.Assets;
+
 import flixel.util.FlxSave;
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepadInputID;
@@ -18,6 +21,8 @@ import states.TitleState;
 	public var noteSkin:String = 'Default';
 	public var splashSkin:String = 'Psych';
 	public var splashAlpha:Float = 0.6;
+	public var holdCoverAlpha:Float = 1;
+	public var holdSplashAlpha:Float = 0.6;
 	public var lowQuality:Bool = false;
 	public var shaders:Bool = true;
 	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
@@ -162,6 +167,7 @@ class ClientPrefs {
 	public static function saveSettings() {
 		for (key in Reflect.fields(data))
 			Reflect.setField(FlxG.save.data, key, Reflect.field(data, key));
+		VisualOptions.savePreferences(FlxG.save.data);
 
 		#if ACHIEVEMENTS_ALLOWED Achievements.save(); #end
 		FlxG.save.flush();
@@ -181,6 +187,7 @@ class ClientPrefs {
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))
 				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+		VisualOptions.loadPreferences(FlxG.save.data);
 		
 		if(Main.fpsVar != null)
 			Main.fpsVar.visible = data.showFPS;
@@ -260,5 +267,148 @@ class ClientPrefs {
 		FlxG.sound.muteKeys = turnOn ? TitleState.muteKeys : emptyArray;
 		FlxG.sound.volumeDownKeys = turnOn ? TitleState.volumeDownKeys : emptyArray;
 		FlxG.sound.volumeUpKeys = turnOn ? TitleState.volumeUpKeys : emptyArray;
+	}
+}
+
+class VisualOptions
+{
+	static final fields:Array<String> = ['noteSkin', 'splashSkin', 'pauseMusic'];
+	static var values:Map<String, Array<String>> = [];
+	static var defaults:Map<String, String> = [];
+	static var selections:Map<String, String> = [];
+	static var loadedContext:String = null;
+	static var preferencesLoaded:Bool = false;
+
+	public static function reload(force:Bool = false)
+	{
+		var context:String = Json.stringify({mod: Mods.currentModDirectory, globals: Mods.getGlobalMods(), level: Paths.currentLevel});
+		if (!force && loadedContext == context) return;
+		loadedContext = context;
+		values = [
+			'noteSkin' => [ClientPrefs.defaultData.noteSkin],
+			'splashSkin' => [ClientPrefs.defaultData.splashSkin],
+			'pauseMusic' => ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)']
+		];
+		defaults.clear();
+		for (field in fields)
+			defaults.set(field, Reflect.field(ClientPrefs.defaultData, field));
+		appendValues('noteSkin', Mods.mergeAllTextsNamed('images/noteSkins/list.txt'));
+		appendValues('splashSkin', Mods.mergeAllTextsNamed('images/noteSplashes/list.txt'));
+
+		for (path in Mods.directoriesWithFile(Paths.getSharedPath(), 'data/visualOptions.json'))
+		{
+			try
+			{
+				var contents:String = #if sys File.getContent(path) #else Assets.getText(path) #end;
+				var config:Dynamic = Json.parse(contents);
+				if (!isObject(config)) throw 'Expected an object';
+				for (field in fields)
+				{
+					var section:Dynamic = Reflect.field(config, field);
+					if (section == null) continue;
+					if (!isObject(section))
+					{
+						trace('$path: invalid $field section');
+						continue;
+					}
+					var additions:Array<String> = [];
+					var entries:Dynamic = Reflect.field(section, 'values');
+					if (Std.isOfType(entries, Array))
+					{
+						for (entry in (cast entries:Array<Dynamic>))
+						{
+							var name:String = stringValue(entry);
+							if (name != null && !additions.contains(name)) additions.push(name);
+						}
+					}
+					for (name in values.get(field))
+						if (!additions.contains(name)) additions.push(name);
+					values.set(field, additions);
+					var defaultName:String = stringValue(Reflect.field(section, 'default'));
+					if (defaultName != null)
+					{
+						if (additions.contains(defaultName)) defaults.set(field, defaultName);
+						else trace('$path: unknown default for $field: $defaultName');
+					}
+				}
+			}
+			catch (e:Dynamic)
+			{
+				trace('Could not load $path: $e');
+			}
+		}
+		if (preferencesLoaded) applyPreferences();
+	}
+
+	static function appendValues(field:String, entries:Array<String>)
+	{
+		var list:Array<String> = values.get(field);
+		for (entry in entries)
+			if (!list.contains(entry)) list.push(entry);
+	}
+
+	static function isObject(value:Dynamic):Bool
+		return value != null && Reflect.isObject(value) && !Std.isOfType(value, String) && !Std.isOfType(value, Array);
+
+	static function stringValue(value:Dynamic):String
+	{
+		if (!Std.isOfType(value, String)) return null;
+		var text:String = StringTools.trim(cast value);
+		return text.length > 0 ? text : null;
+	}
+
+	public static function getValues(field:String):Array<String>
+	{
+		reload();
+		return values.exists(field) ? values.get(field).copy() : [];
+	}
+
+	public static function getDefault(field:String):String
+	{
+		if (!fields.contains(field)) return null;
+		reload();
+		return defaults.get(field);
+	}
+
+	public static function loadPreferences(save:Dynamic)
+	{
+		preferencesLoaded = false;
+		reload(true);
+		selections.clear();
+		var savedSelections:Dynamic = Reflect.field(save, 'visualOptionsSelections');
+		var migrated:Bool = isObject(savedSelections);
+		for (field in fields)
+		{
+			var selection:String = stringValue(Reflect.field(migrated ? savedSelections : save, field));
+			if (selection != null && (migrated || selection != Reflect.field(ClientPrefs.defaultData, field)))
+				selections.set(field, selection);
+		}
+		preferencesLoaded = true;
+		applyPreferences();
+	}
+
+	static function applyPreferences()
+	{
+		for (field in fields)
+		{
+			var selection:String = selections.get(field);
+			if (selection == null || !values.get(field).contains(selection)) selection = defaults.get(field);
+			Reflect.setField(ClientPrefs.data, field, selection);
+		}
+	}
+
+	public static function rememberSelection(field:String)
+	{
+		if (!fields.contains(field)) return;
+		var selection:String = stringValue(Reflect.field(ClientPrefs.data, field));
+		if (selection != null) selections.set(field, selection);
+	}
+
+	public static function savePreferences(save:Dynamic)
+	{
+		var savedSelections:Dynamic = {};
+		for (field => selection in selections)
+			Reflect.setField(savedSelections, field, selection);
+		Reflect.setField(save, 'visualOptionsSelections', savedSelections);
 	}
 }

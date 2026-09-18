@@ -424,6 +424,103 @@ class NoteSplash extends FlxSprite
 	}
 }
 
+class NoteHoldCover extends FlxSprite
+{
+	public var babyArrow:StrumNote;
+	public var note:Note;
+	public var inEditor:Bool = false;
+	public var ending(default, null):Bool = false;
+	var endTime:Float;
+	var previewTime:Float;
+	var pixel:Bool;
+	var texture:String;
+
+	public function new()
+	{
+		super();
+		scrollFactor.set();
+		animation.finishCallback = function(name:String)
+		{
+			if (name == 'start') animation.play('hold', true);
+			else if (name == 'end') kill();
+		};
+	}
+
+	public function start(arrow:StrumNote, ?source:Note)
+	{
+		revive();
+		babyArrow = arrow;
+		note = source;
+		ending = false;
+		previewTime = 0.8;
+		endTime = source != null ? source.strumTime + source.sustainLength : 0;
+		pixel = PlayState.isPixelStage;
+		var color:String = ['Purple', 'Blue', 'Green', 'Red'][arrow.ID % 4];
+		var path:String = 'holdCovers/' + (pixel ? 'pixelNoteHoldCover' : 'holdCover' + color);
+		if (texture != path)
+		{
+			texture = path;
+			frames = Paths.getSparrowAtlas(path);
+			animation.addByPrefix('hold', pixel ? 'loop' : 'holdCover' + color, 24, true);
+			animation.addByPrefix('end', pixel ? 'explode' : 'holdCoverEnd' + color, 24, false);
+			if (!pixel) animation.addByPrefix('start', 'holdCoverStart' + color, 24, false);
+		}
+		// Pixel loop artwork is centered at (17, 19.5), inside the atlas trim (56, 10).
+		// Keep the same anchor for the burst so switching animations does not move it.
+		origin.set(pixel ? 73 : 162, pixel ? 29.5 : 150);
+		offset.copyFrom(origin);
+		antialiasing = !pixel && ClientPrefs.data.antialiasing;
+		animation.play(pixel ? 'hold' : 'start', true);
+		refreshAppearance();
+	}
+
+	public function advance(songPosition:Float, held:Bool)
+	{
+		if (ending || !alive) return;
+		if (songPosition >= endTime)
+		{
+			if (note != null && note.mustPress) finishHold();
+			else kill();
+		}
+		else if (!held) kill();
+	}
+
+	public function finishHold()
+	{
+		ending = true;
+		animation.play('end', true);
+		refreshAppearance();
+	}
+
+	public function refreshAppearance()
+	{
+		if (babyArrow == null) return;
+		setPosition(babyArrow.x + babyArrow.width / 2, babyArrow.y + babyArrow.height / 2);
+		scale.set(babyArrow.scale.x / (pixel ? 1 : 0.7), babyArrow.scale.y / (pixel ? 1 : 0.7));
+		angle = babyArrow.angle + babyArrow.holdCoverAngleOffset;
+		alpha = babyArrow.alpha * (ending ? ClientPrefs.data.holdSplashAlpha : ClientPrefs.data.holdCoverAlpha);
+		visible = babyArrow.visible;
+	}
+
+	override function update(elapsed:Float)
+	{
+		if (inEditor && !ending)
+		{
+			previewTime -= elapsed;
+			if (previewTime <= 0) finishHold();
+		}
+		refreshAppearance();
+		super.update(elapsed);
+	}
+
+	override public function kill()
+	{
+		super.kill();
+		note = null;
+		babyArrow = null;
+	}
+}
+
 class PixelSplashShaderRef 
 {
 	public var shader:PixelSplashShader = new PixelSplashShader();
