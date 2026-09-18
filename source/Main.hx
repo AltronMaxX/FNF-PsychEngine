@@ -39,6 +39,7 @@ import haxe.io.Path;
 #end
 
 import backend.Highscore;
+import backend.PsychCamera;
 
 // NATIVE API STUFF, YOU CAN IGNORE THIS AND SCROLL //
 #if (linux && !debug)
@@ -190,24 +191,18 @@ class Main extends Sprite
 		#end
 
 		// shader coords fix
+		FlxG.signals.preDraw.add(PsychCamera.prepareShaderFilters);
 		FlxG.signals.gameResized.add(function (w, h) {
 		     if (FlxG.cameras != null) {
 			   for (cam in FlxG.cameras.list) {
 				if (cam != null && cam.filters != null)
-					resetSpriteCache(cam.flashSprite);
+					PsychCamera.resetShaderCache(cam.flashSprite);
 			   }
 			}
 
 			if (FlxG.game != null)
-			resetSpriteCache(FlxG.game);
+			PsychCamera.resetShaderCache(FlxG.game);
 		});
-	}
-
-	static function resetSpriteCache(sprite:Sprite):Void {
-		@:privateAccess {
-		        sprite.__cacheBitmap = null;
-			sprite.__cacheBitmapData = null;
-		}
 	}
 
 	// Code was entirely made by sqirra-rng for their fnf engine named "Izzy Engine", big props to them!!!
