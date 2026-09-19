@@ -21,7 +21,10 @@ class GameOverSubstate extends MusicBeatSubstate
 	public static var deathSoundName:String = 'fnf_loss_sfx';
 	public static var loopSoundName:String = 'gameOver';
 	public static var endSoundName:String = 'gameOverEnd';
+	public static var bpm:Float = 100;
 	public static var deathDelay:Float = 0;
+	var lastDeathBeat:Int = -1;
+	var lastDeathMusicTime:Float = -1;
 
 	public static var instance:GameOverSubstate;
 	public function new(?playStateBoyfriend:Character = null)
@@ -38,6 +41,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		deathSoundName = 'fnf_loss_sfx';
 		loopSoundName = 'gameOver';
 		endSoundName = 'gameOverEnd';
+		bpm = 100;
 		deathDelay = 0;
 
 		var _song = PlayState.SONG;
@@ -60,6 +64,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		instance = this;
 
 		Conductor.songPosition = 0;
+		Conductor.bpm = bpm;
 
 		if(boyfriend == null)
 		{
@@ -139,9 +144,9 @@ class GameOverSubstate extends MusicBeatSubstate
 		PlayState.instance.callOnScripts('onUpdate', [elapsed]);
 
 		var justPlayedLoop:Bool = false;
-		if (!boyfriend.isAnimationNull() && boyfriend.getAnimationName() == 'firstDeath' && boyfriend.isAnimationFinished())
+		if (!isEnding && !boyfriend.isAnimationNull() && boyfriend.getAnimationName() == 'firstDeath' && boyfriend.isAnimationFinished())
 		{
-			boyfriend.playAnim('deathLoop');
+			playDeathLoop(boyfriend);
 			if(overlay != null && overlay.animation.exists('deathLoop'))
 			{
 				overlay.visible = true;
@@ -198,10 +203,47 @@ class GameOverSubstate extends MusicBeatSubstate
 			
 			if (FlxG.sound.music.playing)
 			{
+				Conductor.bpm = bpm;
 				Conductor.songPosition = FlxG.sound.music.time;
+				updateDeathBeat(FlxG.sound.music.time);
 			}
 		}
 		PlayState.instance.callOnScripts('onUpdatePost', [elapsed]);
+	}
+
+	/** Call only while the game-over loop is playing and retry has not been confirmed. */
+	function updateDeathBeat(musicTime:Float):Bool
+	{
+		if(!Math.isFinite(bpm) || bpm <= 0 || !Math.isFinite(musicTime) || musicTime < 0)
+			return false;
+
+		// Game-over music has its own clock, independent of chart BPM changes and note offset.
+		var beat:Int = Math.floor(musicTime * bpm / 60000);
+		var beatChanged:Bool = beat != lastDeathBeat || musicTime < lastDeathMusicTime;
+		lastDeathBeat = beat;
+		lastDeathMusicTime = musicTime;
+
+		if(beatChanged && boyfriend != null && !boyfriend.isAnimationNull() && boyfriend.getAnimationName() == 'deathLoop')
+			playDeathLoop(boyfriend);
+
+		return beatChanged;
+	}
+
+	public static function playDeathLoop(character:Character):Void
+	{
+		if(character == null || !character.hasAnimation('deathLoop')) return;
+
+		character.playAnim('deathLoop', true);
+		// Play once and hold the final frame, including characters whose JSON enables looping.
+		if(!character.isAnimateAtlas)
+		{
+			if(character.animation.curAnim != null)
+				character.animation.curAnim.looped = false;
+		}
+		#if flxanimate
+		else if(!character.isAnimationNull())
+			character.atlas.anim.loopType = PlayOnce;
+		#end
 	}
 
 	var isEnding:Bool = false;
