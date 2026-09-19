@@ -1319,6 +1319,8 @@ class PlayState extends MusicBeatState
 		vocals.pitch = playbackRate;
 		opponentVocals.pitch = playbackRate;
 		#end
+		// Missing vocals still belong to this song. Keep the SFX pool from reusing them.
+		vocals.exists = opponentVocals.exists = true;
 		FlxG.sound.list.add(vocals);
 		FlxG.sound.list.add(opponentVocals);
 
