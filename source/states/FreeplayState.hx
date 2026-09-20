@@ -169,16 +169,7 @@ class FreeplayState extends MusicBeatState
 
 		Mods.loadTopMod();
 
-		curDifficulty = Math.round(Math.max(0, Difficulty.list.indexOf(lastDifficultyName)));
-		if(unavailableDiffs.contains(curDifficulty))
-		{
-			for (i in 0...Difficulty.list.length)
-			{
-				if(unavailableDiffs.contains(i)) continue;
-				curDifficulty = i;
-				break;
-			}
-		}
+		curDifficulty = getAvailableDifficulty(lastDifficultyName);
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -794,6 +785,20 @@ class FreeplayState extends MusicBeatState
 		selectedCharIcon.flipX = true;
 	}
 
+	function getAvailableDifficulty(preferred:String):Int
+	{
+		var names = Difficulty.list.map(name -> name.trim().toLowerCase());
+		for (name in [preferred, Difficulty.getDefault()])
+		{
+			if (name == null) continue;
+			var index = names.indexOf(name.trim().toLowerCase());
+			if (index >= 0 && !unavailableDiffs.contains(index)) return index;
+		}
+		for (i in 0...Difficulty.list.length)
+			if (!unavailableDiffs.contains(i)) return i;
+		return 0;
+	}
+
 	function changeCharacter(change:Int = 0, playSound:Bool = true) {
 		var lastSong = songs[curSelected];
 		if (player.playingMusic)
@@ -802,6 +807,7 @@ class FreeplayState extends MusicBeatState
 		if (freeplayCharacters.length == 1)
 			return;
 
+		var previousDifficulty = Difficulty.getString(curDifficulty, false);
 		var scrollOffset:Float = lerpSelected - curSelected;
 		_songs = [];
 
@@ -824,14 +830,7 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		if (!_songs.exists(Difficulty.list[curDifficulty].toLowerCase()) || _songs[Difficulty.list[curDifficulty].toLowerCase()].length == 0) {
-			for (diff in Difficulty.list) { //find first available if not exists
-				if (_songs.exists(diff.toLowerCase()) && _songs[diff.toLowerCase()].length > 0) {
-					curDifficulty = Difficulty.list.indexOf(diff);
-					break;
-				}				
-			}
-		}	
+		curDifficulty = getAvailableDifficulty(previousDifficulty);
 
 		updateSelectedCharacterIcon();
 		createSongTexts();

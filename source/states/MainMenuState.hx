@@ -43,12 +43,9 @@ class MainMenuState extends MusicBeatState
 	var timeTween:Float = 0.95;
 
 	static var showOutdatedWarning:Bool = true;
-	static var finishedFunnyMove:Bool = false;
 	override function create()
 	{
 		super.create();
-
-		finishedFunnyMove = false;
 
 		#if MODS_ALLOWED
 		Mods.pushGlobalMods();
@@ -94,14 +91,7 @@ class MainMenuState extends MusicBeatState
 			var scr = (4 - optionShit.length) * 70;
 			item.y += scr; // Offsets for when you have anything other than 4 items
 			FlxTween.tween(item, {x: (FlxG.width - item.width) / 2}, timeTween, {
-				ease: FlxEase.quintOut,
-				onComplete: function(flxTween:FlxTween)
-				{
-					if (num == optionShit.length - 1) {
-						finishedFunnyMove = true;
-						changeItem();
-					}
-				}
+				ease: FlxEase.quintOut
 			});
 		}
 
@@ -168,7 +158,7 @@ class MainMenuState extends MusicBeatState
 		if (FlxG.sound.music.volume < 0.8)
 			FlxG.sound.music.volume = Math.min(FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
 
-		if (!selectedSomethin && finishedFunnyMove)
+		if (!selectedSomethin)
 		{
 			if (controls.UI_UP_P)
 				changeItem(-1);
@@ -355,6 +345,7 @@ class MainMenuState extends MusicBeatState
 						if(memb == item)
 							continue;
 	
+						FlxTween.cancelTweensOf(memb, ['x']);
 						FlxTween.tween(memb, {x: -1000}, 0.4, {ease: FlxEase.quadOut});
 					}
 				}

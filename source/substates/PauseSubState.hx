@@ -501,7 +501,8 @@ class PauseSubState extends MusicBeatSubstate
 				updateSkipTimeText();
 			}
 		}
-		curSelected = 0;
+		curSelected = menuItems == difficultyChoices ? difficultyChoices.indexOf(Difficulty.getString(null, false).toLowerCase()) : 0;
+		if (curSelected < 0) curSelected = 0;
 		changeSelection();
 	}
 	
