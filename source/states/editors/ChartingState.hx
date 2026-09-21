@@ -27,6 +27,7 @@ import backend.Song;
 import backend.StageData;
 import backend.Highscore;
 import backend.Difficulty;
+import backend.GameOverConfig;
 
 import objects.Character;
 import objects.HealthIcon;
@@ -420,7 +421,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		timelineSlider.valueText.visible = false;
 		infoBox.getTab('Information').menu.add(timelineSlider);
 
-		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Data', 'Events', 'Note', 'Section', 'Song']);
+		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 310, ['Charting', 'Data', 'Events', 'Note', 'Section', 'Song']);
 		mainBox.selectedName = 'Song';
 		mainBox.scrollFactor.set();
 		mainBox.cameras = [camUI];
@@ -692,16 +693,32 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		StageData.loadDirectory(PlayState.SONG);
 
 		// DATA TAB
-		gameOverCharDropDown.selectedLabel = PlayState.SONG.gameOverChar;
-		gameOverSndInputText.text = PlayState.SONG.gameOverSound;
-		gameOverLoopInputText.text = PlayState.SONG.gameOverLoop;
-		gameOverRetryInputText.text = PlayState.SONG.gameOverEnd;
+		reloadGameOverOptions();
 
 		noRGBCheckBox.checked = (PlayState.SONG.disableNoteRGB == true);
 
 		noteTextureInputText.text = PlayState.SONG.arrowSkin;
 		noteSplashesInputText.text = PlayState.SONG.splashSkin;
 		updateCharacterDisplays();
+	}
+
+	function reloadGameOverOptions():Void
+	{
+		var settings = GameOverConfig.read(PlayState.SONG);
+		gameOverCharDropDown.selectedLabel = PlayState.SONG.gameOverChar;
+		gameOverSndInputText.text = PlayState.SONG.gameOverSound;
+		gameOverLoopInputText.text = PlayState.SONG.gameOverLoop;
+		gameOverRetryInputText.text = PlayState.SONG.gameOverEnd;
+		gameOverBPMCheckBox.checked = settings.gameOverBPM != null;
+		gameOverBPMStepper.value = settings.gameOverBPM ?? 100;
+		gameOverBPMStepper.visible = gameOverBPMStepper.active = gameOverBPMCheckBox.checked;
+		gameOverCameraCheckBox.checked = settings.gameOverCameraPosition != null;
+		gameOverCameraXStepper.value = gameOverCameraCheckBox.checked ? settings.gameOverCameraPosition[0] : 0;
+		gameOverCameraYStepper.value = gameOverCameraCheckBox.checked ? settings.gameOverCameraPosition[1] : 0;
+		gameOverCameraXStepper.visible = gameOverCameraXStepper.active = gameOverCameraCheckBox.checked;
+		gameOverCameraYStepper.visible = gameOverCameraYStepper.active = gameOverCameraCheckBox.checked;
+		gameOverOnBeatDropDown.selectedIndex = PlayState.SONG.gameOverOnBeat == null ? 0 : (PlayState.SONG.gameOverOnBeat ? 2 : 1);
+		gameOverFixOffsetsDropDown.selectedIndex = PlayState.SONG.gameOverFixOffsets == null ? 0 : (PlayState.SONG.gameOverFixOffsets ? 2 : 1);
 	}
 	
 	var noteSelectionSine:Float = 0;
@@ -2796,6 +2813,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var gameOverSndInputText:PsychUIInputText;
 	var gameOverLoopInputText:PsychUIInputText;
 	var gameOverRetryInputText:PsychUIInputText;
+	var gameOverBPMStepper:PsychUINumericStepper;
+	var gameOverBPMCheckBox:PsychUICheckBox;
+	var gameOverCameraCheckBox:PsychUICheckBox;
+	var gameOverCameraXStepper:PsychUINumericStepper;
+	var gameOverCameraYStepper:PsychUINumericStepper;
+	var gameOverOnBeatDropDown:PsychUIDropDownMenu;
+	var gameOverFixOffsetsDropDown:PsychUIDropDownMenu;
 	var noRGBCheckBox:PsychUICheckBox;
 	var noteTextureInputText:PsychUIInputText;
 	var noteSplashesInputText:PsychUIInputText;
@@ -2803,40 +2827,86 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	{
 		var tab_group = mainBox.getTab('Data').menu;
 		var objX = 10;
-		var objY = 25;
+		var objY = 32;
 		gameOverCharDropDown = new PsychUIDropDownMenu(objX, objY, [''], function(id:Int, character:String)
 		{
 			PlayState.SONG.gameOverChar = character;
 			if(character.length < 1) Reflect.deleteField(PlayState.SONG, 'gameOverChar');
 			trace('selected $character');
-		});
+		}, 110);
 
-		objY += 40;
-		gameOverSndInputText = new PsychUIInputText(objX, objY, 120, '', 8);
+		gameOverSndInputText = new PsychUIInputText(objX + 150, objY, 120, '', 8);
 		gameOverSndInputText.onChange = function(old:String, cur:String)
 		{
 			PlayState.SONG.gameOverSound = cur;
 			if(cur.trim().length < 1) Reflect.deleteField(PlayState.SONG, 'gameOverSound');
 		}
-		objY += 40;
+		objY = 76;
 		gameOverLoopInputText = new PsychUIInputText(objX, objY, 120, '', 8);
 		gameOverLoopInputText.onChange = function(old:String, cur:String)
 		{
 			PlayState.SONG.gameOverLoop = cur;
 			if(cur.trim().length < 1) Reflect.deleteField(PlayState.SONG, 'gameOverLoop');
 		}
-		objY += 40;
-		gameOverRetryInputText = new PsychUIInputText(objX, objY, 120, '', 8);
+		gameOverRetryInputText = new PsychUIInputText(objX + 150, objY, 120, '', 8);
 		gameOverRetryInputText.onChange = function(old:String, cur:String)
 		{
 			PlayState.SONG.gameOverEnd = cur;
 			if(cur.trim().length < 1) Reflect.deleteField(PlayState.SONG, 'gameOverEnd');
 		}
 
-		objY += 35;
-		noRGBCheckBox = new PsychUICheckBox(objX, objY, 'Disable Note RGB', 100, updateNotesRGB);
+		gameOverOnBeatDropDown = new PsychUIDropDownMenu(objX, 122, ['Use Character', 'Disabled', 'Enabled'], function(id:Int, label:String)
+		{
+			if(id == 0) Reflect.deleteField(PlayState.SONG, 'gameOverOnBeat');
+			else PlayState.SONG.gameOverOnBeat = (id == 2);
+		}, 110);
+		gameOverFixOffsetsDropDown = new PsychUIDropDownMenu(objX + 150, 122, ['Use Character', 'Disabled', 'Enabled'], function(id:Int, label:String)
+		{
+			if(id == 0) Reflect.deleteField(PlayState.SONG, 'gameOverFixOffsets');
+			else PlayState.SONG.gameOverFixOffsets = (id == 2);
+		}, 110);
+		gameOverBPMStepper = new PsychUINumericStepper(objX + 115, 150, 1, 100, 0.001, 9999, 3, 60);
+		gameOverBPMStepper.onValueChange = function()
+		{
+			if(gameOverBPMCheckBox.checked) PlayState.SONG.gameOverBPM = gameOverBPMStepper.value;
+		};
+		gameOverBPMCheckBox = new PsychUICheckBox(objX, 152, 'Game Over BPM', 90, function()
+		{
+			if(!gameOverBPMCheckBox.checked && PsychUIInputText.focusOn == gameOverBPMStepper) PsychUIInputText.focusOn = null;
+			gameOverBPMStepper.visible = gameOverBPMStepper.active = gameOverBPMCheckBox.checked;
+			if(gameOverBPMCheckBox.checked) PlayState.SONG.gameOverBPM = gameOverBPMStepper.value;
+			else Reflect.deleteField(PlayState.SONG, 'gameOverBPM');
+		});
+		gameOverBPMStepper.visible = gameOverBPMStepper.active = false;
+		gameOverCameraXStepper = new PsychUINumericStepper(objX + 20, 198, 1, 0, -9999, 9999, 2);
+		gameOverCameraYStepper = new PsychUINumericStepper(objX + 120, 198, 1, 0, -9999, 9999, 2);
+		gameOverCameraXStepper.onValueChange = gameOverCameraYStepper.onValueChange = function()
+		{
+			if(gameOverCameraCheckBox.checked)
+				PlayState.SONG.gameOverCameraPosition = [gameOverCameraXStepper.value, gameOverCameraYStepper.value];
+		};
+		gameOverCameraCheckBox = new PsychUICheckBox(objX, 178, 'Game Over Camera X/Y:', 160, function()
+		{
+			if(!gameOverCameraCheckBox.checked && (PsychUIInputText.focusOn == gameOverCameraXStepper
+				|| PsychUIInputText.focusOn == gameOverCameraYStepper)) PsychUIInputText.focusOn = null;
+			gameOverCameraXStepper.visible = gameOverCameraXStepper.active = gameOverCameraCheckBox.checked;
+			gameOverCameraYStepper.visible = gameOverCameraYStepper.active = gameOverCameraCheckBox.checked;
+			if(gameOverCameraCheckBox.checked)
+				PlayState.SONG.gameOverCameraPosition = [gameOverCameraXStepper.value, gameOverCameraYStepper.value];
+			else Reflect.deleteField(PlayState.SONG, 'gameOverCameraPosition');
+		});
+		gameOverCameraXStepper.visible = gameOverCameraXStepper.active = false;
+		gameOverCameraYStepper.visible = gameOverCameraYStepper.active = false;
+		tab_group.add(new FlxText(objX, 94, 130, 'Game Over Play Animation on Beat'));
+		tab_group.add(new FlxText(objX + 150, 94, 130, 'Game Over Fix Offsets'));
+		tab_group.add(gameOverBPMCheckBox);
+		tab_group.add(gameOverBPMStepper);
+		tab_group.add(gameOverCameraCheckBox);
+		tab_group.add(gameOverCameraXStepper);
+		tab_group.add(gameOverCameraYStepper);
+		noRGBCheckBox = new PsychUICheckBox(objX, 270, 'Disable Note RGB', 140, updateNotesRGB);
 		
-		objY += 40;
+		objY = 242;
 		noteTextureInputText = new PsychUIInputText(objX, objY, 120, '');
 		noteTextureInputText.unfocus = function()
 		{
@@ -2870,17 +2940,17 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 		};
 
-		noteSplashesInputText = new PsychUIInputText(objX + 140, objY, 120, '');
+		noteSplashesInputText = new PsychUIInputText(objX + 150, objY, 120, '');
 		noteSplashesInputText.onChange = function(old:String, cur:String)
 		{
 			PlayState.SONG.splashSkin = cur;
 			if(cur.trim().length < 1) PlayState.SONG.splashSkin = null;
 		}
 	
-		tab_group.add(new FlxText(gameOverCharDropDown.x, gameOverCharDropDown.y - 15, 120, 'Game Over Character:'));
-		tab_group.add(new FlxText(gameOverSndInputText.x, gameOverSndInputText.y - 15, 180, 'Game Over Death Sound (sounds/):'));
-		tab_group.add(new FlxText(gameOverLoopInputText.x, gameOverLoopInputText.y - 15, 180, 'Game Over Loop Music (music/):'));
-		tab_group.add(new FlxText(gameOverRetryInputText.x, gameOverRetryInputText.y - 15, 180, 'Game Over Retry Music (music/):'));
+		tab_group.add(new FlxText(gameOverCharDropDown.x, gameOverCharDropDown.y - 28, 130, 'Game Over Character:'));
+		tab_group.add(new FlxText(gameOverSndInputText.x, gameOverSndInputText.y - 28, 130, 'Game Over Death Sound (sounds/):'));
+		tab_group.add(new FlxText(gameOverLoopInputText.x, gameOverLoopInputText.y - 28, 130, 'Game Over Loop Music (music/):'));
+		tab_group.add(new FlxText(gameOverRetryInputText.x, gameOverRetryInputText.y - 28, 130, 'Game Over Retry Music (music/):'));
 		tab_group.add(gameOverSndInputText);
 		tab_group.add(gameOverLoopInputText);
 		tab_group.add(gameOverRetryInputText);
@@ -2891,6 +2961,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(noteTextureInputText);
 		tab_group.add(noteSplashesInputText);
 
+		tab_group.add(gameOverFixOffsetsDropDown);
+		tab_group.add(gameOverOnBeatDropDown);
 		tab_group.add(gameOverCharDropDown); //lowest priority to display properly
 	}
 
@@ -5015,7 +5087,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	function saveChart(canQuickSave:Bool = true)
 	{
 		updateChartData();
-		var chartData:String = PsychJsonPrinter.print(PlayState.SONG, ['sectionNotes', 'events']);
+		if(!gameOverBPMCheckBox.checked) Reflect.deleteField(PlayState.SONG, 'gameOverBPM');
+		if(!gameOverCameraCheckBox.checked) Reflect.deleteField(PlayState.SONG, 'gameOverCameraPosition');
+		var chartData:String = PsychJsonPrinter.print(PlayState.SONG, ['sectionNotes', 'events', 'gameOverCameraPosition']);
 		if(canQuickSave && Song.chartPath != null)
 		{
 			File.saveContent(Song.chartPath, chartData);

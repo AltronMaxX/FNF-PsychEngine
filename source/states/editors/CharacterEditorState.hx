@@ -13,6 +13,7 @@ import openfl.utils.Assets;
 import objects.Character;
 import objects.HealthIcon;
 import objects.Bar;
+import backend.GameOverConfig;
 
 import states.editors.content.Prompt;
 import states.editors.content.PsychJsonPrinter;
@@ -251,7 +252,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		UI_box.scrollFactor.set();
 		UI_box.cameras = [camHUD];
 
-		UI_characterbox = new PsychUIBox(UI_box.x - 100, UI_box.y + UI_box.height + 10, 350, 280, ['Animations', 'Character']);
+		UI_characterbox = new PsychUIBox(UI_box.x - 100, UI_box.y + UI_box.height + 10, 350, 280, ['Animations', 'Character', 'Game Over']);
 		UI_characterbox.scrollFactor.set();
 		UI_characterbox.cameras = [camHUD];
 		add(UI_characterbox);
@@ -261,6 +262,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		addSettingsUI();
 		addAnimationsUI();
 		addCharacterUI();
+		addGameOverUI();
 
 		UI_box.selectedName = 'Settings';
 		UI_characterbox.selectedName = 'Character';
@@ -703,6 +705,109 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		tab_group.add(saveCharacterButton);
 	}
 
+	var gameOverTextFields:Array<PsychUIInputText> = [];
+	var gameOverTextNames:Array<String> = ['gameOverSound', 'gameOverLoop', 'gameOverEnd'];
+	var gameOverCharDropDown:PsychUIDropDownMenu;
+	var gameOverBPMCheckBox:PsychUICheckBox;
+	var gameOverBPMStepper:PsychUINumericStepper;
+	var gameOverCameraXStepper:PsychUINumericStepper;
+	var gameOverCameraYStepper:PsychUINumericStepper;
+	var gameOverOnBeatCheckBox:PsychUICheckBox;
+	var gameOverFixOffsetsCheckBox:PsychUICheckBox;
+	function addGameOverUI():Void
+	{
+		var tab = UI_characterbox.getTab('Game Over').menu;
+		gameOverCharDropDown = new PsychUIDropDownMenu(15, 35, [''], function(id:Int, name:String)
+		{
+			if(name.length == 0) Reflect.deleteField(character.gameOver, 'gameOverChar');
+			else character.gameOver.gameOverChar = name;
+			unsavedProgress = true;
+		}, 125);
+		tab.add(new FlxText(15, 7, 150, 'Game Over Character:'));
+		var labels = ['Game Over Death Sound (sounds/):',
+			'Game Over Loop Music (music/):', 'Game Over Retry Music (music/):'];
+		for(i in 0...gameOverTextNames.length)
+		{
+			var field = gameOverTextNames[i];
+			var x = 15 + ((i + 1) % 2) * 170;
+			var y = 35 + Std.int((i + 1) / 2) * 47;
+			var input = new PsychUIInputText(x, y, 145, '', 8);
+			input.onChange = function(old:String, value:String)
+			{
+				if(value.trim().length == 0) Reflect.deleteField(character.gameOver, field);
+				else Reflect.setField(character.gameOver, field, value.trim());
+				unsavedProgress = true;
+			};
+			gameOverTextFields.push(input);
+			tab.add(new FlxText(x, y - 28, 150, labels[i]));
+			tab.add(input);
+		}
+		gameOverBPMStepper = new PsychUINumericStepper(130, 114, 1, 100, 0.001, 9999, 3);
+		gameOverBPMStepper.onValueChange = function()
+		{
+			if(gameOverBPMCheckBox.checked) character.gameOver.gameOverBPM = gameOverBPMStepper.value;
+			unsavedProgress = true;
+		};
+		gameOverBPMCheckBox = new PsychUICheckBox(15, 116, 'Game Over BPM', 90, function()
+		{
+			if(!gameOverBPMCheckBox.checked && PsychUIInputText.focusOn == gameOverBPMStepper) PsychUIInputText.focusOn = null;
+			gameOverBPMStepper.visible = gameOverBPMStepper.active = gameOverBPMCheckBox.checked;
+			if(gameOverBPMCheckBox.checked) character.gameOver.gameOverBPM = gameOverBPMStepper.value;
+			else Reflect.deleteField(character.gameOver, 'gameOverBPM');
+			unsavedProgress = true;
+		});
+		gameOverCameraXStepper = new PsychUINumericStepper(15, 160, 1, 0, -9999, 9999, 2);
+		gameOverCameraYStepper = new PsychUINumericStepper(115, 160, 1, 0, -9999, 9999, 2);
+		gameOverCameraXStepper.onValueChange = gameOverCameraYStepper.onValueChange = function()
+		{
+			if(gameOverCameraXStepper.value == 0 && gameOverCameraYStepper.value == 0)
+				Reflect.deleteField(character.gameOver, 'gameOverCameraPosition');
+			else character.gameOver.gameOverCameraPosition = [gameOverCameraXStepper.value, gameOverCameraYStepper.value];
+			unsavedProgress = true;
+		};
+		gameOverOnBeatCheckBox = new PsychUICheckBox(15, 188, 'Game Over Play Animation on Beat', 300, function()
+		{
+			character.gameOver.gameOverOnBeat = gameOverOnBeatCheckBox.checked;
+			unsavedProgress = true;
+		});
+		gameOverFixOffsetsCheckBox = new PsychUICheckBox(15, 214, 'Game Over Fix Offsets', 200, function()
+		{
+			character.gameOver.gameOverFixOffsets = gameOverFixOffsetsCheckBox.checked;
+			unsavedProgress = true;
+		});
+		tab.add(gameOverBPMCheckBox);
+		tab.add(gameOverBPMStepper);
+		tab.add(new FlxText(15, 142, 200, 'Game Over Camera X/Y:'));
+		tab.add(gameOverCameraXStepper);
+		tab.add(gameOverCameraYStepper);
+		tab.add(gameOverOnBeatCheckBox);
+		tab.add(gameOverFixOffsetsCheckBox);
+		tab.add(gameOverCharDropDown); // Keep the open list above the other controls.
+		reloadGameOverOptions();
+	}
+
+	function reloadGameOverOptions():Void
+	{
+		if(gameOverBPMStepper == null) return;
+		var deathCharacters = characterList.copy();
+		var selected = character.gameOver.gameOverChar ?? '';
+		if(!deathCharacters.contains(selected)) deathCharacters.push(selected);
+		if(!deathCharacters.contains('')) deathCharacters.push('');
+		deathCharacters.sort(function(a:String, b:String) return a < b ? -1 : (a > b ? 1 : 0));
+		gameOverCharDropDown.list = deathCharacters;
+		gameOverCharDropDown.selectedLabel = selected;
+		for(i in 0...gameOverTextFields.length)
+			gameOverTextFields[i].text = Reflect.field(character.gameOver, gameOverTextNames[i]) ?? '';
+		gameOverBPMCheckBox.checked = character.gameOver.gameOverBPM != null;
+		gameOverBPMStepper.value = character.gameOver.gameOverBPM ?? 100;
+		gameOverBPMStepper.visible = gameOverBPMStepper.active = gameOverBPMCheckBox.checked;
+		var position = character.gameOver.gameOverCameraPosition;
+		gameOverCameraXStepper.value = position != null ? position[0] : 0;
+		gameOverCameraYStepper.value = position != null ? position[1] : 0;
+		gameOverOnBeatCheckBox.checked = character.gameOver.gameOverOnBeat == true;
+		gameOverFixOffsetsCheckBox.checked = character.gameOver.gameOverFixOffsets == true;
+	}
+
 	public function UIEvent(id:String, sender:Dynamic) {
 		//trace(id, sender);
 		if(id == PsychUICheckBox.CLICK_EVENT)
@@ -849,6 +954,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		positionYStepper.value = character.positionArray[1];
 		positionCameraXStepper.value = character.cameraPosition[0];
 		positionCameraYStepper.value = character.cameraPosition[1];
+		reloadGameOverOptions();
 		reloadAnimationDropDown();
 		updateHealthBar();
 	}
@@ -1233,6 +1339,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		if(characterList.length < 1) characterList.push('');
 		charDropDown.list = characterList;
 		charDropDown.selectedLabel = _char;
+		reloadGameOverOptions();
 	}
 
 	function reloadAnimationDropDown() {
@@ -1300,7 +1407,11 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 			"_editor_isPlayer": character.isPlayer
 		};
 
-		var data:String = PsychJsonPrinter.print(json, ['offsets', 'position', 'healthbar_colors', 'camera_position', 'indices']);
+		GameOverConfig.apply(json, character.gameOver);
+		var deathCamera:Array<Float> = Reflect.field(json, 'gameOverCameraPosition');
+		if(deathCamera != null && deathCamera[0] == 0 && deathCamera[1] == 0)
+			Reflect.deleteField(json, 'gameOverCameraPosition');
+		var data:String = PsychJsonPrinter.print(json, ['offsets', 'position', 'healthbar_colors', 'camera_position', 'gameOverCameraPosition', 'indices']);
 
 		if (data.length > 0)
 		{

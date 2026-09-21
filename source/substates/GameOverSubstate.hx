@@ -1,6 +1,8 @@
 package substates;
 
 import backend.WeekData;
+import backend.GameOverConfig;
+import backend.GameOverConfig.GameOverSettings;
 
 import objects.Character;
 import flixel.FlxObject;
@@ -22,7 +24,12 @@ class GameOverSubstate extends MusicBeatSubstate
 	public static var loopSoundName:String = 'gameOver';
 	public static var endSoundName:String = 'gameOverEnd';
 	public static var bpm:Float = 100;
+	public static var playAnimationOnBeat:Bool = false;
+	public static var fixOffsets:Bool = false;
+	public static var cameraPosition:Array<Float> = [0, 0];
 	public static var deathDelay:Float = 0;
+	static var stageSettings:GameOverSettings;
+	static var previousSettings:GameOverSettings;
 	var lastDeathBeat:Int = -1;
 	var lastDeathMusicTime:Float = -1;
 
@@ -37,21 +44,71 @@ class GameOverSubstate extends MusicBeatSubstate
 	}
 
 	public static function resetVariables() {
-		characterName = 'bf-dead';
-		deathSoundName = 'fnf_loss_sfx';
-		loopSoundName = 'gameOver';
-		endSoundName = 'gameOverEnd';
-		bpm = 100;
+		var settings = GameOverConfig.defaults();
+		GameOverConfig.apply(settings, PlayState.SONG);
+		setSettings(settings);
 		deathDelay = 0;
+		stageSettings = null;
+		previousSettings = null;
+	}
 
-		var _song = PlayState.SONG;
-		if(_song != null)
+	static function getSettings():GameOverSettings
+	{
+		return {gameOverChar: characterName, gameOverSound: deathSoundName, gameOverLoop: loopSoundName,
+			gameOverEnd: endSoundName, gameOverBPM: bpm, gameOverOnBeat: playAnimationOnBeat, gameOverFixOffsets: fixOffsets,
+			gameOverCameraPosition: cameraPosition.copy()};
+	}
+
+	static function setSettings(settings:GameOverSettings):Void
+	{
+		characterName = settings.gameOverChar;
+		deathSoundName = settings.gameOverSound;
+		loopSoundName = settings.gameOverLoop;
+		endSoundName = settings.gameOverEnd;
+		bpm = settings.gameOverBPM;
+		playAnimationOnBeat = settings.gameOverOnBeat;
+		fixOffsets = settings.gameOverFixOffsets;
+		cameraPosition = settings.gameOverCameraPosition.copy();
+	}
+
+	public static function applyCharacterSettings(character:Character):Void
+	{
+		var settings = getSettings();
+		if(stageSettings == null) stageSettings = getSettings();
+		// On Change Character, discard the previous character's settings while
+		// preserving values subsequently changed by legacy stage/character scripts.
+		if(previousSettings != null)
 		{
-			if(_song.gameOverChar != null && _song.gameOverChar.trim().length > 0) characterName = _song.gameOverChar;
-			if(_song.gameOverSound != null && _song.gameOverSound.trim().length > 0) deathSoundName = _song.gameOverSound;
-			if(_song.gameOverLoop != null && _song.gameOverLoop.trim().length > 0) loopSoundName = _song.gameOverLoop;
-			if(_song.gameOverEnd != null && _song.gameOverEnd.trim().length > 0) endSoundName = _song.gameOverEnd;
+			for(field in GameOverConfig.fields)
+			{
+				var unchanged = field == 'gameOverCameraPosition'
+					? settings.gameOverCameraPosition[0] == previousSettings.gameOverCameraPosition[0]
+						&& settings.gameOverCameraPosition[1] == previousSettings.gameOverCameraPosition[1]
+					: Reflect.field(settings, field) == Reflect.field(previousSettings, field);
+				if(unchanged)
+					Reflect.setField(settings, field, Reflect.field(stageSettings, field));
+			}
 		}
+		if(character != null) GameOverConfig.apply(settings, character.gameOver);
+		GameOverConfig.apply(settings, PlayState.SONG);
+		setSettings(settings);
+		previousSettings = getSettings();
+	}
+
+	/** Finalize the native screen's camera target after create() assigns its legacy position. */
+	public static function applyCameraOffsets(character:Character, camera:FlxCamera):Void
+	{
+		if(character == null || camera == null || camera.target == null) return;
+		if(fixOffsets)
+		{
+			var midpoint = character.getMidpoint();
+			camera.target.setPosition(midpoint.x - 100, midpoint.y - 100);
+			camera.target.x -= character.cameraPosition[0] - PlayState.instance.boyfriendCameraOffset[0];
+			camera.target.y += character.cameraPosition[1] + PlayState.instance.boyfriendCameraOffset[1];
+			midpoint.put();
+		}
+		camera.target.x += cameraPosition[0];
+		camera.target.y += cameraPosition[1];
 	}
 
 	var charX:Float = 0;
@@ -68,7 +125,9 @@ class GameOverSubstate extends MusicBeatSubstate
 
 		if(boyfriend == null)
 		{
-			boyfriend = new Character(PlayState.instance.boyfriend.getScreenPosition().x, PlayState.instance.boyfriend.getScreenPosition().y, characterName, true);
+			var position = fixOffsets ? PlayState.instance.boyfriend.getPosition() : PlayState.instance.boyfriend.getScreenPosition();
+			boyfriend = new Character(position.x, position.y, characterName, true);
+			position.put();
 			boyfriend.x += boyfriend.positionArray[0] - PlayState.instance.boyfriend.positionArray[0];
 			boyfriend.y += boyfriend.positionArray[1] - PlayState.instance.boyfriend.positionArray[1];
 		}
@@ -76,7 +135,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		add(boyfriend);
 
 		FlxG.sound.play(Paths.sound(deathSoundName));
-		FlxG.camera.scroll.set();
+		if(!fixOffsets) FlxG.camera.scroll.set();
 		FlxG.camera.target = null;
 
 		boyfriend.playAnim('firstDeath');
@@ -85,6 +144,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		camFollow.setPosition(boyfriend.getGraphicMidpoint().x + boyfriend.cameraPosition[0], boyfriend.getGraphicMidpoint().y + boyfriend.cameraPosition[1]);
 		FlxG.camera.focusOn(new FlxPoint(FlxG.camera.scroll.x + (FlxG.camera.width / 2), FlxG.camera.scroll.y + (FlxG.camera.height / 2)));
 		FlxG.camera.follow(camFollow, LOCKON, 0.01);
+		applyCameraOffsets(boyfriend, FlxG.camera);
 		add(camFollow);
 		
 		PlayState.instance.setOnScripts('inGameOver', true);
@@ -214,7 +274,7 @@ class GameOverSubstate extends MusicBeatSubstate
 	/** Call only while the game-over loop is playing and retry has not been confirmed. */
 	function updateDeathBeat(musicTime:Float):Bool
 	{
-		if(!Math.isFinite(bpm) || bpm <= 0 || !Math.isFinite(musicTime) || musicTime < 0)
+		if(!playAnimationOnBeat || !Math.isFinite(bpm) || bpm <= 0 || !Math.isFinite(musicTime) || musicTime < 0)
 			return false;
 
 		// Game-over music has its own clock, independent of chart BPM changes and note offset.
@@ -232,6 +292,13 @@ class GameOverSubstate extends MusicBeatSubstate
 	public static function playDeathLoop(character:Character):Void
 	{
 		if(character == null || !character.hasAnimation('deathLoop')) return;
+		// Used when firstDeath finishes and by updateDeathBeat(). In legacy mode,
+		// start the loop once and leave its JSON loop setting alone.
+		if(!playAnimationOnBeat)
+		{
+			if(character.getAnimationName() != 'deathLoop') character.playAnim('deathLoop');
+			return;
+		}
 
 		character.playAnim('deathLoop', true);
 		// Play once and hold the final frame, including characters whose JSON enables looping.

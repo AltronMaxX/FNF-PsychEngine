@@ -4,9 +4,11 @@ import haxe.Json;
 import lime.utils.Assets;
 
 import objects.Note;
+import backend.GameOverConfig.GameOverSettings;
 
 typedef SwagSong =
 {
+	> GameOverSettings,
 	var song:String;
 	var notes:Array<SwagSection>;
 	var events:Array<Dynamic>;
@@ -23,10 +25,6 @@ typedef SwagSong =
 	var stage:String;
 	var format:String;
 
-	@:optional var gameOverChar:String;
-	@:optional var gameOverSound:String;
-	@:optional var gameOverLoop:String;
-	@:optional var gameOverEnd:String;
 	
 	@:optional var disableNoteRGB:Bool;
 
@@ -58,6 +56,10 @@ class Song
 	public var gameOverSound:String;
 	public var gameOverLoop:String;
 	public var gameOverEnd:String;
+	public var gameOverOnBeat:Null<Bool>;
+	public var gameOverBPM:Null<Float>;
+	public var gameOverFixOffsets:Null<Bool>;
+	public var gameOverCameraPosition:Array<Float>;
 	public var disableNoteRGB:Bool = false;
 	public var speed:Float = 1;
 	public var stage:String;

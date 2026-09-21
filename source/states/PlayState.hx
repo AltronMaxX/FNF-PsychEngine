@@ -419,6 +419,7 @@ class PlayState extends MusicBeatState
 		boyfriend = new Character(0, 0, SONG.player1, true);
 		startCharacterPos(boyfriend);
 		boyfriendGroup.add(boyfriend);
+		GameOverSubstate.applyCharacterSettings(boyfriend);
 		
 		if(stageData.objects != null && stageData.objects.length > 0)
 		{
@@ -2284,6 +2285,7 @@ class PlayState extends MusicBeatState
 							var lastAlpha:Float = boyfriend.alpha;
 							boyfriend.alpha = 0.00001;
 							boyfriend = boyfriendMap.get(value2);
+							GameOverSubstate.applyCharacterSettings(boyfriend);
 							boyfriend.alpha = lastAlpha;
 							iconP1.changeIcon(boyfriend.healthIcon);
 						}

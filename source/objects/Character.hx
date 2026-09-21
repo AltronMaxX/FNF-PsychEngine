@@ -10,9 +10,12 @@ import openfl.utils.Assets;
 import haxe.Json;
 
 import backend.Song;
+import backend.GameOverConfig;
+import backend.GameOverConfig.GameOverSettings;
 import states.stages.objects.TankmenBG;
 
 typedef CharacterFile = {
+	> GameOverSettings,
 	var animations:Array<AnimArray>;
 	var image:String;
 	var scale:Float;
@@ -73,6 +76,7 @@ class Character extends FlxSprite
 	public var missingText:FlxText;
 	public var hasMissAnimations:Bool = false;
 	public var vocalsFile:String = '';
+	public var gameOver:GameOverSettings = {};
 
 	//Used on Character Editor
 	public var imageFile:String = '';
@@ -143,6 +147,7 @@ class Character extends FlxSprite
 
 	public function loadCharacterFile(json:Dynamic)
 	{
+		gameOver = GameOverConfig.read(json);
 		isAnimateAtlas = false;
 
 		#if flxanimate
