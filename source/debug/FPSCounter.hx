@@ -44,7 +44,7 @@ class FPSCounter extends Sprite
         textField.y = 2;
         textField.selectable = false;
         textField.mouseEnabled = false;
-        textField.defaultTextFormat = new TextFormat(openfl.utils.Assets.getFont(Paths.font("mono.ttf")).fontName, 14, color);
+        textField.defaultTextFormat = new TextFormat("_sans", 14, color);
         textField.autoSize = LEFT;
         textField.multiline = true;
         textField.text = "FPS: ";
