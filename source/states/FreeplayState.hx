@@ -121,14 +121,7 @@ class FreeplayState extends MusicBeatState
 			var hasAvailableSong = false;
 			for (song in weekData.songs) {
 				final sd:SongData = cast song;
-				var songAvailable:Bool = true;
-				if (sd.unlockedAfter != null && sd.showAfter != null) {
-
-					loadSave(sd.unlockedAfter.save);
-					loadSave(sd.showAfter.save);
-
-					songAvailable = shouldShowLockedSong(sd.showAfter);
-				}
+				var songAvailable = isSongVisible(sd);
 				hasAvailableSong = hasAvailableSong || songAvailable;
 
 				var preparedDiffs = sd.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
@@ -159,7 +152,7 @@ class FreeplayState extends MusicBeatState
 		selectedCharIcon = new HealthIcon();
 		updateSelectedCharacterIcon();
 
-		Difficulty.loadFromAllWeeks();
+		loadFreeplayDifficulties();
 
 		for (diff in Difficulty.list) {
 			if (!_songs.exists(diff.toLowerCase()) || _songs[diff.toLowerCase()].length == 0) {
@@ -799,6 +792,17 @@ class FreeplayState extends MusicBeatState
 		return 0;
 	}
 
+	function loadFreeplayDifficulties()
+	{
+		Difficulty.loadFromAllWeeks();
+		// Keep a difficulty only if it can be selected in at least one visible tab.
+		Difficulty.list = Difficulty.list.filter(function(diff:String):Bool {
+			for (character in freeplayCharacters)
+				if (charDiff[character].contains(diff.toLowerCase())) return true;
+			return false;
+		});
+	}
+
 	function changeCharacter(change:Int = 0, playSound:Bool = true) {
 		var lastSong = songs[curSelected];
 		if (player.playingMusic)
@@ -822,7 +826,7 @@ class FreeplayState extends MusicBeatState
 				reloadSongs(i);
 		}
 
-		Difficulty.loadFromAllWeeks();
+		loadFreeplayDifficulties();
 
 		for (diff in Difficulty.list) {
 			if (!_songs.exists(diff.toLowerCase()) || _songs[diff.toLowerCase()].length == 0) {
@@ -998,10 +1002,7 @@ class FreeplayState extends MusicBeatState
 			{
 				colors = [146, 113, 253];
 			}
-			if (sd.unlockedAfter != null) {
-				if (!shouldShowLockedSong(sd.showAfter) && checkLock(sd.unlockedAfter.save, sd.unlockedAfter.field))
-					continue;
-			}
+			if (!isSongVisible(sd)) continue;
 			var preparedDiffs = sd.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
 			for (diff in preparedDiffs) {
 				if (!_songs.exists(diff)) {
@@ -1058,6 +1059,14 @@ class FreeplayState extends MusicBeatState
 				ret += "?";
 		}
 		return ret;
+	}
+
+	private function isSongVisible(song:SongData):Bool
+	{
+		if (song.unlockedAfter == null) return true;
+		loadSave(song.unlockedAfter.save);
+		if (song.showAfter != null) loadSave(song.showAfter.save);
+		return shouldShowLockedSong(song.showAfter) || !checkLock(song.unlockedAfter.save, song.unlockedAfter.field);
 	}
 
 	private function shouldShowLockedSong(showAfter:UnlockData):Bool
