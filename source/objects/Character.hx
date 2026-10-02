@@ -380,7 +380,7 @@ class Character extends FlxSprite
 		}
 	}
 
-	public function playAnim(AnimName:String, Force:Bool = false, Reversed:Bool = false, OffsetEnabled:Bool = true, Frame:Int = 0):Void
+	public function playAnim(AnimName:String, Force:Bool = false, Reversed:Bool = false, Frame:Int = 0, OffsetEnabled:Bool = true):Void
 	{
 		specialAnim = false;
 		if(!isAnimateAtlas)

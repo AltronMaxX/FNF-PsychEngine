@@ -49,6 +49,9 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 
 	private var camEditor:FlxCamera;
 	private var camHUD:FlxCamera;
+	#if !BASE_GAME_FILES
+	private var previousCameraBgColor:FlxColor;
+	#end
 
 	var UI_box:PsychUIBox;
 	var UI_characterbox:PsychUIBox;
@@ -73,6 +76,9 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 
 		FlxG.sound.music.stop();
 		camEditor = initPsychCamera();
+		#if !BASE_GAME_FILES
+		previousCameraBgColor = camEditor.bgColor;
+		#end
 
 		camHUD = new FlxCamera();
 		camHUD.bgColor.alpha = 0;
@@ -1173,6 +1179,15 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 			return;
 		}
 	}
+
+	#if !BASE_GAME_FILES
+	override function destroy()
+	{
+		// Flixel resets cameras before destroying the outgoing state, so restore the current camera.
+		FlxG.camera.bgColor = previousCameraBgColor;
+		super.destroy();
+	}
+	#end
 
 	final assetFolder = 'week1';  //load from assets/week1/
 	inline function loadBG()

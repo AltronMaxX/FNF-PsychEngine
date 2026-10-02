@@ -497,7 +497,7 @@ class NoteHoldCover extends FlxSprite
 		if (babyArrow == null) return;
 		setPosition(babyArrow.x + babyArrow.width / 2, babyArrow.y + babyArrow.height / 2);
 		scale.set(babyArrow.scale.x / (pixel ? 1 : 0.7), babyArrow.scale.y / (pixel ? 1 : 0.7));
-		angle = babyArrow.angle + babyArrow.holdCoverAngleOffset;
+		angle = babyArrow.direction - 90;
 		alpha = babyArrow.alpha * (ending ? ClientPrefs.data.holdSplashAlpha : ClientPrefs.data.holdCoverAlpha);
 		visible = babyArrow.visible;
 	}

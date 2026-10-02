@@ -11,8 +11,6 @@ class StrumNote extends FlxSprite
 	public var resetAnim:Float = 0;
 	private var noteData:Int = 0;
 	public var direction:Float = 90;
-	// Compensates for a note skin's rotation without changing modchart rotation.
-	public var holdCoverAngleOffset:Float = 0;
 	public var downScroll:Bool = false;
 	public var sustainReduce:Bool = true;
 	private var player:Int;

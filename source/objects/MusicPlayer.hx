@@ -247,6 +247,7 @@ class MusicPlayer extends FlxGroup
 		active = visible = playingMusic;
 
 		instance.scoreBG.visible = instance.diffText.visible = instance.scoreText.visible = !playingMusic; //Hide Freeplay texts and boxes if playingMusic is true
+		instance.diffSel.visible = instance.leftSel.visible = instance.rightSel.visible = !playingMusic;
 		songTxt.visible = timeTxt.visible = songBG.visible = playbackTxt.visible = playbackBG.visible = progressBar.visible = playingMusic; //Show Music Player texts and boxes if playingMusic is true
 
 		for (i in playbackSymbols)
