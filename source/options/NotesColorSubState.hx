@@ -582,7 +582,8 @@ class NotesColorSubState extends MusicBeatSubstate
 	public function spawnNotes()
 	{
 		dataArray = !onPixel ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
-		if (onPixel) PlayState.stageUI = "pixel";
+		var previousUI = PlayState.stageUI;
+		PlayState.stageUI = onPixel ? "pixel" : "normal";
 
 		// clear groups
 		modeNotes.forEachAlive(function(note:FlxSprite) {
@@ -644,7 +645,7 @@ class NotesColorSubState extends MusicBeatSubstate
 			myNotes.add(newNote);
 		}
 
-		bigNote = new Note(0, 0, false, true);
+		bigNote = new Note(0, 0, null, false, true);
 		bigNote.setPosition(250, 325);
 		bigNote.setGraphicSize(250);
 		bigNote.updateHitbox();
@@ -657,7 +658,7 @@ class NotesColorSubState extends MusicBeatSubstate
 		}
 		insert(members.indexOf(myNotes) + 1, bigNote);
 		_storedColor = getShaderColor();
-		PlayState.stageUI = "normal";
+		PlayState.stageUI = previousUI;
 	}
 
 	function updateNotes(?instant:Bool = false)

@@ -295,7 +295,7 @@ class VisualOptions
 		appendValues('noteSkin', Mods.mergeAllTextsNamed('images/noteSkins/list.txt'));
 		appendValues('splashSkin', Mods.mergeAllTextsNamed('images/noteSplashes/list.txt'));
 
-		for (path in Mods.directoriesWithFile(Paths.getSharedPath(), 'data/visualOptions.json'))
+		for (path in Mods.directoriesWithFile(Paths.getSharedPath(), 'images/visualOptions.json'))
 		{
 			try
 			{

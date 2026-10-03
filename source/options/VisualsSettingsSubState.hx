@@ -259,7 +259,8 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 	{
 		var skin:String = Note.defaultNoteSkin;
 		var customSkin:String = skin + Note.getNoteSkinPostfix();
-		if(Paths.fileExists('images/$customSkin.png', IMAGE)) skin = customSkin;
+		var path:String = PlayState.isPixelStage ? 'pixelUI/' : '';
+		if(Paths.fileExists('images/$path$customSkin.png', IMAGE)) skin = customSkin;
 
 		note.texture = skin; //Load texture and anims
 		note.reloadNote();

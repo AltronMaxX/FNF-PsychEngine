@@ -4,6 +4,7 @@ import flixel.addons.display.FlxPieDial;
 
 #if hxvlc
 import hxvlc.flixel.FlxVideoSprite;
+import hxvlc.util.macros.Define;
 #end
 
 class VideoSprite extends FlxSpriteGroup {
@@ -19,6 +20,7 @@ class VideoSprite extends FlxSpriteGroup {
 	public var canSkip(default, set):Bool = false;
 
 	private var videoName:String;
+	private var hasVideoFrame:Bool = false;
 
 	public var waiting:Bool = false;
 
@@ -47,17 +49,14 @@ class VideoSprite extends FlxSpriteGroup {
 
 		// callbacks
 		if(!shouldLoop) videoSprite.bitmap.onEndReached.add(finishVideo);
+		videoSprite.bitmap.onDisplay.add(function()
+		{
+			if(!alreadyDestroyed) hasVideoFrame = true;
+		}, true);
 
 		videoSprite.bitmap.onFormatSetup.add(function()
 		{
-			/*
-			#if hxvlc
-			var wd:Int = videoSprite.bitmap.formatWidth;
-			var hg:Int = videoSprite.bitmap.formatHeight;
-			trace('Video Resolution: ${wd}x${hg}');
-			videoSprite.scale.set(FlxG.width / wd, FlxG.height / hg);
-			#end
-			*/
+			if(alreadyDestroyed) return;
 			videoSprite.setGraphicSize(FlxG.width);
 			videoSprite.updateHitbox();
 			videoSprite.screenCenter();
@@ -65,6 +64,7 @@ class VideoSprite extends FlxSpriteGroup {
 
 		// start video and adjust resolution to screen size
 		videoSprite.load(videoName, shouldLoop ? ['input-repeat=65545'] : null);
+		syncVolume();
 	}
 
 	var alreadyDestroyed:Bool = false;
@@ -72,6 +72,15 @@ class VideoSprite extends FlxSpriteGroup {
 	{
 		if(alreadyDestroyed)
 			return;
+		alreadyDestroyed = true;
+		hasVideoFrame = false;
+		holdingTime = 0;
+
+		// Native events may already be queued for the main thread.
+		videoSprite.bitmap.onOpening.removeAll();
+		videoSprite.bitmap.onFormatSetup.removeAll();
+		videoSprite.bitmap.onDisplay.removeAll();
+		videoSprite.bitmap.onEndReached.removeAll();
 
 		trace('Video destroyed');
 		if(cover != null)
@@ -92,22 +101,31 @@ class VideoSprite extends FlxSpriteGroup {
 				FlxG.state.subState.remove(this);
 		}
 		super.destroy();
-		alreadyDestroyed = true;
+		videoSprite = null;
+		skipSprite = null;
+		cover = null;
 	}
 	function finishVideo()
 	{
-		if (!alreadyDestroyed)
-		{
-			if(finishCallback != null)
-				finishCallback();
-			
-			destroy();
-		}
+		completeVideo(false);
+	}
+
+	function completeVideo(skipped:Bool)
+	{
+		if(alreadyDestroyed) return;
+
+		var callback = skipped ? onSkip : finishCallback;
+		// A callback can change states, destroy this video or start another one.
+		destroy();
+		if(callback != null) callback();
 	}
 
 	override function update(elapsed:Float)
 	{
-		if(canSkip)
+		if(alreadyDestroyed) return;
+
+		// Loading/preloaded videos must not consume the key used to enter the song.
+		if(canSkip && hasVideoFrame && videoSprite.bitmap.isPlaying)
 		{
 			if(Controls.instance.pressed('accept'))
 			{
@@ -121,12 +139,15 @@ class VideoSprite extends FlxSpriteGroup {
 
 			if(holdingTime >= _timeToSkip)
 			{
-				if(onSkip != null) onSkip();
-				finishCallback = null;
-				videoSprite.bitmap.onEndReached.dispatch();
+				completeVideo(true);
 				trace('Skipped video');
 				return;
 			}
+		}
+		else
+		{
+			holdingTime = 0;
+			updateSkipAlpha();
 		}
 		super.update(elapsed);
 	}
@@ -134,6 +155,7 @@ class VideoSprite extends FlxSpriteGroup {
 	function set_canSkip(newValue:Bool)
 	{
 		canSkip = newValue;
+		holdingTime = 0;
 		if(canSkip)
 		{
 			if(skipSprite == null)
@@ -143,8 +165,10 @@ class VideoSprite extends FlxSpriteGroup {
 				skipSprite.x = FlxG.width - (skipSprite.width + 80);
 				skipSprite.y = FlxG.height - (skipSprite.height + 72);
 				skipSprite.amount = 0;
+				skipSprite.alpha = 0;
 				add(skipSprite);
 			}
+			updateSkipAlpha();
 		}
 		else if(skipSprite != null)
 		{
@@ -163,8 +187,26 @@ class VideoSprite extends FlxSpriteGroup {
 		skipSprite.alpha = FlxMath.remapToRange(skipSprite.amount, 0.025, 1, 0, 1);
 	}
 
-	public function play() videoSprite?.play();
-	public function resume() videoSprite?.resume();
+	function syncVolume()
+	{
+		// hxvlc's onOpening runs later; OpenAL can start playing before it arrives.
+		var volume = FlxG.sound.muted ? 0 : FlxG.sound.volume;
+		videoSprite.bitmap.volume = Math.floor(volume * Define.getFloat('HXVLC_FLIXEL_VOLUME_MULTIPLIER', 125) * videoSprite.volumeAdjust);
+	}
+
+	public function play()
+	{
+		if(alreadyDestroyed) return;
+		syncVolume();
+		videoSprite.play();
+	}
+
+	public function resume()
+	{
+		if(alreadyDestroyed) return;
+		syncVolume();
+		videoSprite.resume();
+	}
 	public function pause() videoSprite?.pause();
 	#end
 }

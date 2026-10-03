@@ -5,7 +5,7 @@ import backend.animation.PsychAnimationController;
 import shaders.RGBPalette;
 import shaders.RGBPalette.RGBShaderReference;
 
-class StrumNote extends FlxSprite
+class StrumNote extends NoteSkinSprite
 {
 	public var rgbShader:RGBShaderReference;
 	public var resetAnim:Float = 0;
@@ -79,6 +79,7 @@ class StrumNote extends FlxSprite
 
 	public function reloadNote()
 	{
+		loadSkinData((PlayState.isPixelStage ? 'pixelUI/' : '') + texture, 'strums');
 		var lastAnim:String = null;
 		if(animation.curAnim != null) lastAnim = animation.curAnim.name;
 
