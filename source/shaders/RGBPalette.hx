@@ -66,6 +66,9 @@ class RGBShaderReference
 	public var b(default, set):FlxColor;
 	public var mult(default, set):Float;
 	public var enabled(default, set):Bool = true;
+	// Baked default-colour textures must never be recoloured, even when an
+	// animation or script requests RGB. Keep that request for the next texture.
+	public var textureAllowsRGB(default, set):Bool = true;
 
 	public var parent:RGBPalette;
 	private var _owner:FlxSprite;
@@ -108,8 +111,30 @@ class RGBShaderReference
 	}
 	private function set_enabled(value:Bool)
 	{
-		_owner.shader = value ? parent.shader : null;
+		_owner.shader = value && textureAllowsRGB ? parent.shader : null;
 		return (enabled = value);
+	}
+
+	function set_textureAllowsRGB(value:Bool):Bool
+	{
+		textureAllowsRGB = value;
+		enabled = enabled;
+		return value;
+	}
+
+	/** Update inherited channels while retaining colours supplied by note types or events. */
+	public function refreshColors(previous:Array<FlxColor>, colors:Array<FlxColor>):Void
+	{
+		if (parent.r == previous[0]) parent.r = colors[0];
+		if (parent.g == previous[1]) parent.g = colors[1];
+		if (parent.b == previous[2]) parent.b = colors[2];
+		@:bypassAccessor
+		{
+			r = parent.r;
+			g = parent.g;
+			b = parent.b;
+		}
+		enabled = enabled;
 	}
 
 	public var allowNew = true;
@@ -125,7 +150,7 @@ class RGBShaderReference
 			parent.g = _original.g;
 			parent.b = _original.b;
 			parent.mult = _original.mult;
-			if(enabled) _owner.shader = parent.shader;
+			if(enabled && textureAllowsRGB) _owner.shader = parent.shader;
 			//trace('created new shader');
 		}
 	}

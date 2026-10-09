@@ -639,9 +639,7 @@ class PlayState extends MusicBeatState
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
-		if (isPixelStage) Paths.getSparrowAtlas('holdCovers/pixelNoteHoldCover');
-		else
-			for (color in ['Purple', 'Blue', 'Green', 'Red']) Paths.getSparrowAtlas('holdCovers/holdCover' + color);
+		Paths.getSparrowAtlas(NoteHoldCover.getTexture(isPixelStage));
 
 		super.create();
 		Paths.clearUnusedMemory();
@@ -1680,22 +1678,60 @@ class PlayState extends MusicBeatState
 	public function applyOptions(session:OptionsSession)
 	{
 		var changed:Array<String> = session.changedFields();
-		if (changed.contains('noteSkin') || changed.contains('splashAlpha'))
+		var customColorsField = isPixelStage ? 'customNoteColorsPixel' : 'customNoteColors';
+		var paletteField = isPixelStage ? 'arrowRGBPixel' : 'arrowRGB';
+		var colorsChanged = changed.contains('noteSkin') || changed.contains(customColorsField) || changed.contains(paletteField);
+		var imagesChanged = changed.contains('noteSkin') || changed.contains(customColorsField);
+		var previousColors:Array<Array<FlxColor>> = session.previousValue(customColorsField) == true
+			? session.previousValue(paletteField)
+			: backend.NoteSkinData.getColors(isPixelStage,
+				backend.NoteSkinData.resolveImage(null, isPixelStage, session.previousValue('noteSkin')), true);
+		if (imagesChanged || colorsChanged || changed.contains('splashAlpha'))
 		{
 			var oldAlpha:Float = session.previousValue('splashAlpha');
 			for (collection in [notes.members, unspawnNotes])
 				for (note in collection)
 				{
 					if (note == null) continue;
-					if (changed.contains('noteSkin')) note.refreshSkin();
+					if (imagesChanged) note.refreshSkin();
+					if (colorsChanged) note.refreshColors(previousColors[note.noteData]);
 					if (changed.contains('splashAlpha') && note.noteSplashData.a == oldAlpha)
 						note.noteSplashData.a = ClientPrefs.data.splashAlpha;
 				}
-			if (changed.contains('noteSkin'))
-				for (strum in strumLineNotes) strum.refreshSkin(session.previousValue('noteSkin'));
+			for (strum in strumLineNotes)
+			{
+				if (imagesChanged) strum.refreshSkin(session.previousValue('noteSkin'));
+				if (colorsChanged) strum.refreshColors(previousColors[strum.ID % 4]);
+			}
 		}
-		if (changed.contains('holdCoverAlpha') || changed.contains('holdSplashAlpha') || changed.contains('noteSkin'))
+		if (colorsChanged)
+		{
+			var colors = backend.NoteSkinData.getColors();
+			for (i in 0...4)
+			{
+				var shader = Note.initializeGlobalRGBShader(i);
+				if (shader.r == previousColors[i][0]) shader.r = colors[i][0];
+				if (shader.g == previousColors[i][1]) shader.g = colors[i][1];
+				if (shader.b == previousColors[i][2]) shader.b = colors[i][2];
+			}
+		}
+		if (colorsChanged || changed.contains('splashSkin') || changed.contains('splashAlpha'))
+			grpNoteSplashes.forEachAlive(function(splash:NoteSplash)
+			{
+				if (changed.contains('splashSkin')) splash.refreshSkin();
+				if (colorsChanged || changed.contains('splashSkin')) splash.refreshColors();
+				if (changed.contains('splashAlpha')) splash.refreshAlpha(session.previousValue('splashAlpha'));
+			});
+		if (changed.contains('holdCoverAlpha') || changed.contains('holdSplashAlpha') || colorsChanged)
 			grpNoteHoldCovers.forEachAlive(cover -> cover.refreshAppearance());
+		if (changed.contains('hideHud'))
+		{
+			// Restore native HUD first; onOptionsChanged lets custom HUDs hide their replacements again.
+			healthBar.visible = iconP1.visible = iconP2.visible = scoreTxt.visible = !ClientPrefs.data.hideHud;
+			refreshComboVisibility();
+		}
+		if (changed.contains('comboStacking') && !ClientPrefs.data.comboStacking)
+			comboGroup.forEachAlive(sprite -> {if (!lastComboPopup.contains(sprite)) sprite.visible = false;});
 		if (changed.contains('timeBarType'))
 		{
 			var songTitle:Bool = ClientPrefs.data.timeBarType == 'Song Name';
@@ -1703,6 +1739,8 @@ class PlayState extends MusicBeatState
 			timeTxt.size = songTitle ? 24 : 32;
 			timeTxt.y += (songTitle ? 3 : 0) - (session.previousValue('timeBarType') == 'Song Name' ? 3 : 0);
 			var elapsedTime:Float = Math.max(0, Conductor.songPosition - ClientPrefs.data.noteOffset);
+			songPercent = songLength > 0 ? elapsedTime / songLength : 0;
+			timeBar.percent = FlxMath.bound(songPercent * 100, 0, 100);
 			var time:Float = ClientPrefs.data.timeBarType == 'Time Elapsed' ? elapsedTime : songLength - elapsedTime;
 			timeTxt.text = songTitle ? SONG.song : FlxStringUtil.formatTime(Math.max(0, Math.floor(time / 1000)), false);
 			if (!startingSong) timeTxt.alpha = timeBar.alpha = 1;
@@ -1723,11 +1761,37 @@ class PlayState extends MusicBeatState
 		#if LUA_ALLOWED
 		for (lua in luaArray) lua.updateClientPrefs(changed);
 		#end
-		if (changed.length > 0) callOnScripts('onOptionsChanged', [changed]);
+		if (changed.length > 0)
+		{
+			callOnScripts('onOptionsChanged', [changed]);
+			// Dependent sprites can follow their owners' final layout while gameplay is paused.
+			callOnScripts('onOptionsChangedPost', [changed]);
+		}
 		#if DISCORD_ALLOWED
 		if (ClientPrefs.data.discordRPC && autoUpdateRPC)
 			DiscordClient.changePresence(detailsPausedText, SONG.song + ' (' + storyDifficultyText + ')', iconP2.getCharacter());
 		#end
+	}
+
+	var lastComboPopup:Array<FlxSprite> = [];
+	var hiddenComboPopups:Array<FlxSprite> = [];
+	function refreshComboVisibility():Void
+	{
+		if (ClientPrefs.data.hideHud)
+		{
+			comboGroup.forEachAlive(function(sprite:FlxSprite)
+			{
+				if (sprite.visible) hiddenComboPopups.push(sprite);
+				sprite.visible = false;
+			});
+		}
+		else
+		{
+			for (sprite in hiddenComboPopups)
+				if (sprite.exists && sprite.alive && comboGroup.members.contains(sprite)
+					&& (ClientPrefs.data.comboStacking || lastComboPopup.contains(sprite))) sprite.visible = true;
+			hiddenComboPopups = [];
+		}
 	}
 
 	public var paused:Bool = false;
@@ -2650,6 +2714,8 @@ class PlayState extends MusicBeatState
 
 	private function popUpScore(note:Note = null):Void
 	{
+		lastComboPopup = [];
+		hiddenComboPopups = hiddenComboPopups.filter(sprite -> sprite.exists);
 		var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
 		vocals.volume = 1;
 
@@ -2722,6 +2788,8 @@ class PlayState extends MusicBeatState
 		comboSpr.y += 60;
 		comboSpr.velocity.x += FlxG.random.int(1, 10) * playbackRate;
 		comboGroup.add(rating);
+		lastComboPopup.push(rating);
+		if (ClientPrefs.data.hideHud && showRating) hiddenComboPopups.push(rating);
 
 		if (!PlayState.isPixelStage)
 		{
@@ -2740,7 +2808,11 @@ class PlayState extends MusicBeatState
 		var daLoop:Int = 0;
 		var xThing:Float = 0;
 		if (showCombo)
+		{
 			comboGroup.add(comboSpr);
+			lastComboPopup.push(comboSpr);
+			if (ClientPrefs.data.hideHud) hiddenComboPopups.push(comboSpr);
+		}
 
 		var separatedScore:String = Std.string(combo).lpad('0', 3);
 		for (i in 0...separatedScore.length)
@@ -2762,7 +2834,11 @@ class PlayState extends MusicBeatState
 
 			//if (combo >= 10 || combo == 0)
 			if(showComboNum)
+			{
 				comboGroup.add(numScore);
+				lastComboPopup.push(numScore);
+				if (ClientPrefs.data.hideHud) hiddenComboPopups.push(numScore);
+			}
 
 			FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
 				onComplete: function(tween:FlxTween)

@@ -203,7 +203,7 @@ class OptionsSubState extends MusicBeatSubstate
 				selectorRight.setPosition(item.x + item.width + 15, item.y);
 			}
 		}
-		warning.text = fromPause && ['Note Colors', 'Adjust Delay and Combo', 'Language'].contains(options[curSelected])
+		warning.text = fromPause && ['Adjust Delay and Combo', 'Language'].contains(options[curSelected])
 			? restartWarning() : '';
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
@@ -248,10 +248,10 @@ class OptionsSubState extends MusicBeatSubstate
 class OptionsSession
 {
 	static final restartFields:Array<String> = [
-		'arrowRGB', 'arrowRGBPixel', 'noteOffset', 'comboOffset',
-		'lowQuality', 'antialiasing', 'shaders', 'cacheOnGPU', 'hideHud', 'flashing',
+		'noteOffset', 'comboOffset',
+		'lowQuality', 'antialiasing', 'shaders', 'cacheOnGPU', 'flashing',
 		'downScroll', 'middleScroll', 'opponentStrums', 'enableModcharts', 'enableMechanics',
-		'guitarHeroSustains', 'developerMode', 'language'
+		'guitarHeroSustains', 'language'
 	];
 
 	var initialValues:Map<String, String> = [];

@@ -1,6 +1,7 @@
 package objects;
 
 import backend.animation.PsychAnimationController;
+import backend.NoteSkinData;
 
 import shaders.RGBPalette;
 import shaders.RGBPalette.RGBShaderReference;
@@ -8,12 +9,16 @@ import shaders.RGBPalette.RGBShaderReference;
 class StrumNote extends NoteSkinSprite
 {
 	public var rgbShader:RGBShaderReference;
+	public var colorSkinImage(default, null):String;
+	public var usesDefaultColorsImage(default, null):Bool = false;
 	public var resetAnim:Float = 0;
 	private var noteData:Int = 0;
 	public var direction:Float = 90;
 	public var downScroll:Bool = false;
 	public var sustainReduce:Bool = true;
 	private var player:Int;
+	var baseFrameWidth:Float = 0;
+	var baseFrameHeight:Float = 0;
 	
 	public var texture(default, set):String = null;
 	private function set_texture(value:String):String {
@@ -32,8 +37,7 @@ class StrumNote extends NoteSkinSprite
 		rgbShader.enabled = false;
 		if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) useRGBShader = false;
 		
-		var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[leData];
-		if(PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[leData];
+		var arr:Array<FlxColor> = NoteSkinData.getColors()[leData];
 		
 		if(leData <= arr.length)
 		{
@@ -58,11 +62,8 @@ class StrumNote extends NoteSkinSprite
 
 	public static function getDefaultTexture(?noteSkin:String):String
 	{
-		var skin:String = PlayState.SONG != null && PlayState.SONG.arrowSkin != null && PlayState.SONG.arrowSkin.length > 1
-			? PlayState.SONG.arrowSkin : Note.defaultNoteSkin;
-		var customSkin:String = skin + Note.getNoteSkinPostfix(noteSkin);
-		var path:String = PlayState.isPixelStage ? 'pixelUI/' : '';
-		return Paths.fileExists('images/$path$customSkin.png', IMAGE) ? customSkin : skin;
+		var image = NoteSkinData.resolveImage(null, null, noteSkin);
+		return image.startsWith('pixelUI/') ? image.substr(8) : image;
 	}
 
 	public function refreshSkin(previousSkin:String)
@@ -71,7 +72,8 @@ class StrumNote extends NoteSkinSprite
 		var rgbEnabled:Bool = rgbShader.enabled;
 		var scaleX:Float = scale.x;
 		var scaleY:Float = scale.y;
-		texture = getDefaultTexture();
+		@:bypassAccessor texture = getDefaultTexture();
+		reloadNote();
 		rgbShader.enabled = rgbEnabled;
 		scale.set(scaleX, scaleY);
 		updateHitbox();
@@ -79,16 +81,27 @@ class StrumNote extends NoteSkinSprite
 
 	public function reloadNote()
 	{
-		loadSkinData((PlayState.isPixelStage ? 'pixelUI/' : '') + texture, 'strums');
-		var lastAnim:String = null;
-		if(animation.curAnim != null) lastAnim = animation.curAnim.name;
-
+		var previousAnim = animation.curAnim;
+		var lastAnim = previousAnim != null ? previousAnim.name : null;
+		var lastFrame = previousAnim != null ? previousAnim.curFrame : 0;
+		var wasFinished = previousAnim != null && previousAnim.finished;
+		var wasPaused = previousAnim != null && previousAnim.paused;
+		var frameTimer:Float = previousAnim != null ? @:privateAccess previousAnim._frameTimer : 0;
+		baseFrameWidth = baseFrameHeight = 0;
+		colorSkinImage = (PlayState.isPixelStage ? 'pixelUI/' : '') + texture;
+		loadSkinData(colorSkinImage, 'strums');
+		var alternate = rgbShader.allowNew ? skinData.defaultImage(PlayState.isPixelStage) : null;
+		usesDefaultColorsImage = alternate != null;
+		rgbShader.textureAllowsRGB = !usesDefaultColorsImage;
+		var image = usesDefaultColorsImage ? alternate : colorSkinImage;
 		if(PlayState.isPixelStage)
 		{
-			loadGraphic(Paths.image('pixelUI/' + texture));
+			loadGraphic(Paths.image(image));
 			width = width / 4;
 			height = height / 5;
-			loadGraphic(Paths.image('pixelUI/' + texture), true, Math.floor(width), Math.floor(height));
+			loadGraphic(Paths.image(image), true, Math.floor(width), Math.floor(height));
+			baseFrameWidth = frameWidth;
+			baseFrameHeight = frameHeight;
 
 			antialiasing = false;
 			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
@@ -119,32 +132,34 @@ class StrumNote extends NoteSkinSprite
 		}
 		else
 		{
-			frames = Paths.getSparrowAtlas(texture);
+			frames = Paths.getSparrowAtlas(image);
+			baseFrameWidth = frameWidth;
+			baseFrameHeight = frameHeight;
 			animation.addByPrefix('green', 'arrowUP');
 			animation.addByPrefix('blue', 'arrowDOWN');
 			animation.addByPrefix('purple', 'arrowLEFT');
 			animation.addByPrefix('red', 'arrowRIGHT');
 
-			antialiasing = ClientPrefs.data.antialiasing;
-			setGraphicSize(Std.int(width * 0.7));
+			antialiasing = !PlayState.isPixelStage && ClientPrefs.data.antialiasing;
+			setGraphicSize(Std.int(width * (PlayState.isPixelStage ? PlayState.daPixelZoom : 0.7)));
 
 			switch (Math.abs(noteData) % 4)
 			{
 				case 0:
 					animation.addByPrefix('static', 'arrowLEFT');
-					animation.addByPrefix('pressed', 'left press', 24, false);
+					animation.addByPrefix('pressed', 'left press', PlayState.isPixelStage ? 12 : 24, false);
 					animation.addByPrefix('confirm', 'left confirm', 24, false);
 				case 1:
 					animation.addByPrefix('static', 'arrowDOWN');
-					animation.addByPrefix('pressed', 'down press', 24, false);
+					animation.addByPrefix('pressed', 'down press', PlayState.isPixelStage ? 12 : 24, false);
 					animation.addByPrefix('confirm', 'down confirm', 24, false);
 				case 2:
 					animation.addByPrefix('static', 'arrowUP');
-					animation.addByPrefix('pressed', 'up press', 24, false);
-					animation.addByPrefix('confirm', 'up confirm', 24, false);
+					animation.addByPrefix('pressed', 'up press', PlayState.isPixelStage ? 12 : 24, false);
+					animation.addByPrefix('confirm', 'up confirm', PlayState.isPixelStage ? 12 : 24, false);
 				case 3:
 					animation.addByPrefix('static', 'arrowRIGHT');
-					animation.addByPrefix('pressed', 'right press', 24, false);
+					animation.addByPrefix('pressed', 'right press', PlayState.isPixelStage ? 12 : 24, false);
 					animation.addByPrefix('confirm', 'right confirm', 24, false);
 			}
 		}
@@ -153,7 +168,33 @@ class StrumNote extends NoteSkinSprite
 		if(lastAnim != null)
 		{
 			playAnim(lastAnim, true);
+			animation.curAnim.curFrame = wasFinished ? animation.curAnim.numFrames - 1 : Std.int(Math.min(lastFrame, animation.curAnim.numFrames - 1));
+			animation.curAnim.paused = wasPaused;
+			@:privateAccess animation.curAnim.finished = wasFinished;
+			@:privateAccess animation.curAnim._frameTimer = frameTimer;
+			centerOffsets();
+			centerOrigin();
 		}
+	}
+
+	/** Confirm frames include a larger glow canvas. They must not resize the
+	 * receptor's body when options reload its texture midway through a hit. */
+	override public function updateHitbox():Void
+	{
+		if (baseFrameWidth <= 0 || baseFrameHeight <= 0)
+		{
+			super.updateHitbox();
+			return;
+		}
+		width = Math.abs(scale.x) * baseFrameWidth;
+		height = Math.abs(scale.y) * baseFrameHeight;
+		centerOffsets();
+		centerOrigin();
+	}
+
+	public function refreshColors(previous:Array<FlxColor>):Void
+	{
+		rgbShader.refreshColors(previous, NoteSkinData.getColors(null, colorSkinImage)[noteData]);
 	}
 
 	public function playerPosition()
@@ -181,6 +222,6 @@ class StrumNote extends NoteSkinSprite
 			centerOffsets();
 			centerOrigin();
 		}
-		if(useRGBShader) rgbShader.enabled = (animation.curAnim != null && animation.curAnim.name != 'static');
+		rgbShader.enabled = useRGBShader && (animation.curAnim != null && animation.curAnim.name != 'static');
 	}
 }

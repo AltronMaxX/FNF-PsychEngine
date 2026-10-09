@@ -9,6 +9,7 @@ import lime.system.Clipboard;
 import flixel.util.FlxGradient;
 import objects.StrumNote;
 import objects.Note;
+import backend.NoteSkinData;
 
 import shaders.RGBPalette;
 import shaders.RGBPalette.RGBShaderReference;
@@ -20,6 +21,13 @@ class NotesColorSubState extends MusicBeatSubstate
 	var curSelectedNote:Int = 0;
 	var onPixel:Bool = false;
 	var dataArray:Array<Array<FlxColor>>;
+	var skinDefaults:Array<Array<FlxColor>>;
+	var customColorsButton:FlxText;
+	var customColorsHint:FlxText;
+	var customColorsOverlay:FlxSprite;
+	var resetTip:FlxText;
+	var vanillaTip:FlxText;
+	var hasSkinPalette:Bool = false;
 
 	var hexTypeLine:FlxSprite;
 	var hexTypeNum:Int = -1;
@@ -138,28 +146,24 @@ class NotesColorSubState extends MusicBeatSubstate
 		hexTypeLine.visible = false;
 		add(hexTypeLine);
 
+		customColorsOverlay = new FlxSprite(750, 160).makeGraphic(FlxG.width - 780, 540, FlxColor.BLACK);
+		customColorsOverlay.alpha = 0.8;
+		add(customColorsOverlay);
+		customColorsHint = new FlxText(780, 350, FlxG.width - 840, '', 20);
+		customColorsHint.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		customColorsHint.borderSize = 2;
+		add(customColorsHint);
+
 		spawnNotes();
 		updateNotes(true);
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 
-		var tipX = 20;
-		var tipY = OptionsSubState.fromPause ? 636 : 660;
-		var tip:FlxText = new FlxText(tipX, tipY, 0, Language.getPhrase('note_colors_tip', 'Press RESET to Reset the selected Note Part.'), 16);
-		tip.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		tip.borderSize = 2;
-		add(tip);
-
-		tipTxt = new FlxText(tipX, tipY + 24, 0, '', 16);
-		tipTxt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		tipTxt.borderSize = 2;
-		add(tipTxt);
+		customColorsButton = makeControlTip();
+		resetTip = makeControlTip();
+		resetTip.text = Language.getPhrase('note_colors_tip', 'Press RESET to Reset the selected Note Part.');
+		tipTxt = makeControlTip();
+		vanillaTip = makeControlTip();
 		updateTip();
-		if (OptionsSubState.fromPause)
-		{
-			var warning = new FlxText(tipX, tipY + 48, 700, OptionsSubState.restartWarning(), 16);
-			warning.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.RED, LEFT, OUTLINE, FlxColor.BLACK);
-			add(warning);
-		}
 
 		controllerPointer = new FlxShapeCircle(0, 0, 20, {thickness: 0}, FlxColor.WHITE);
 		controllerPointer.offset.set(20, 20);
@@ -172,10 +176,60 @@ class NotesColorSubState extends MusicBeatSubstate
 		_lastControllerMode = controls.controllerMode;
 	}
 
+	function makeControlTip():FlxText
+	{
+		var tip = new FlxText(20, 0, 0, '', 16);
+		tip.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		tip.borderSize = 2;
+		add(tip);
+		return tip;
+	}
+
 	function updateTip()
 	{
+		if (tipTxt == null) return;
 		var key:String = !controls.controllerMode ? Language.getPhrase('note_colors_shift', 'Shift') : Language.getPhrase('note_colors_lb', 'Left Shoulder Button');
 		tipTxt.text = Language.getPhrase('note_colors_hold_tip', 'Hold {1} + Press RESET key to fully reset the selected Note.', [key]);
+		vanillaTip.text = Language.getPhrase('note_colors_vanilla_tip', 'Hold Alt with RESET to use vanilla colors (Shift for all parts).');
+		vanillaTip.visible = hasSkinPalette;
+		var tipY = hasSkinPalette ? 612 : 636;
+		customColorsButton.y = tipY;
+		resetTip.y = tipY + 24;
+		tipTxt.y = tipY + 48;
+		vanillaTip.y = tipY + 72;
+		updateCustomColorsLabel();
+	}
+
+	function updateCustomColorsLabel():Void
+	{
+		var key = controls.controllerMode ? 'RB' : 'TAB';
+		customColorsButton.text = customColorsEnabled
+			? Language.getPhrase('note_colors_disable_tip', 'Press {1} to disable custom colors.', [key])
+			: Language.getPhrase('note_colors_enable_tip', 'Press {1} to enable custom colors.', [key]);
+		customColorsHint.text = Language.getPhrase('note_colors_disabled_palette', 'Custom colors are disabled.\nPress {1} to enable them.', [key]);
+		customColorsHint.visible = customColorsOverlay.visible = !customColorsEnabled;
+		pasteButton.alpha = customColorsEnabled ? 0.6 : 0.25;
+	}
+
+	var customColorsEnabled(get, set):Bool;
+	function get_customColorsEnabled():Bool
+		return NoteSkinData.usesCustomColors(onPixel);
+	function set_customColorsEnabled(value:Bool):Bool
+	{
+		if (onPixel) ClientPrefs.data.customNoteColorsPixel = value;
+		else ClientPrefs.data.customNoteColors = value;
+		return value;
+	}
+
+	function toggleCustomColors():Void
+	{
+		customColorsEnabled = !customColorsEnabled;
+		holdingOnObj = null;
+		hexTypeNum = -1;
+		spawnNotes();
+		updateNotes(true);
+		updateCustomColorsLabel();
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 	}
 
 	var _storedColor:FlxColor;
@@ -245,6 +299,12 @@ class NotesColorSubState extends MusicBeatSubstate
 		}
 		var controllerPressed:Bool = (controls.controllerMode && controls.ACCEPT);
 		//
+		if ((hexTypeNum < 0 && (FlxG.keys.justPressed.TAB || FlxG.gamepads.anyJustPressed(RIGHT_SHOULDER)))
+			|| ((FlxG.mouse.justPressed || controllerPressed) && pointerOverlaps(customColorsButton)))
+		{
+			toggleCustomColors();
+			return;
+		}
 
 		if(FlxG.keys.justPressed.CONTROL)
 		{
@@ -331,7 +391,7 @@ class NotesColorSubState extends MusicBeatSubstate
 		if(generalMoved)
 		{
 			copyButton.alpha = 0.6;
-			pasteButton.alpha = 0.6;
+			pasteButton.alpha = customColorsEnabled ? 0.6 : 0.25;
 		}
 
 		if(pointerOverlaps(copyButton))
@@ -345,7 +405,7 @@ class NotesColorSubState extends MusicBeatSubstate
 			}
 			hexTypeNum = -1;
 		}
-		else if (pointerOverlaps(pasteButton))
+		else if (customColorsEnabled && pointerOverlaps(pasteButton))
 		{
 			pasteButton.alpha = 1;
 			if(generalPressed)
@@ -391,22 +451,21 @@ class NotesColorSubState extends MusicBeatSubstate
 						modeBG.visible = notesBG.visible = false;
 						curSelectedNote = note.ID;
 						onModeColumn = false;
-						bigNote.rgbShader.parent = Note.globalRgbShaders[note.ID];
-						bigNote.shader = Note.globalRgbShaders[note.ID].shader;
+						selectBigNoteColor(note.ID);
 						updateNotes();
 						FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 					}
 				});
 			}
-			else if (pointerOverlaps(colorWheel)) {
+			else if (customColorsEnabled && pointerOverlaps(colorWheel)) {
 				_storedColor = getShaderColor();
 				holdingOnObj = colorWheel;
 			}
-			else if (pointerOverlaps(colorGradient)) {
+			else if (customColorsEnabled && pointerOverlaps(colorGradient)) {
 				_storedColor = getShaderColor();
 				holdingOnObj = colorGradient;
 			}
-			else if (pointerOverlaps(colorPalette)) {
+			else if (customColorsEnabled && pointerOverlaps(colorPalette)) {
 				setShaderColor(colorPalette.pixels.getPixel32(
 					Std.int((pointerX() - colorPalette.x) / colorPalette.scale.x), 
 					Std.int((pointerY() - colorPalette.y) / colorPalette.scale.y)));
@@ -420,7 +479,7 @@ class NotesColorSubState extends MusicBeatSubstate
 				updateNotes(true);
 				FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 			}
-			else if(pointerY() >= hexTypeLine.y && pointerY() < hexTypeLine.y + hexTypeLine.height &&
+			else if(customColorsEnabled && pointerY() >= hexTypeLine.y && pointerY() < hexTypeLine.y + hexTypeLine.height &&
 					Math.abs(pointerX() - 1000) <= 84)
 			{
 				hexTypeNum = 0;
@@ -470,31 +529,27 @@ class NotesColorSubState extends MusicBeatSubstate
 				}
 			} 
 		}
-		else if(controls.RESET && hexTypeNum < 0)
+		else if(customColorsEnabled && controls.RESET && hexTypeNum < 0)
 		{
-			if(FlxG.keys.pressed.SHIFT || FlxG.gamepads.anyPressed(LEFT_SHOULDER))
-			{
-				for (i in 0...3)
-				{
-					var strumRGB:RGBShaderReference = myNotes.members[curSelectedNote].rgbShader;
-					var color:FlxColor = !onPixel ? ClientPrefs.defaultData.arrowRGB[curSelectedNote][i] :
-													ClientPrefs.defaultData.arrowRGBPixel[curSelectedNote][i];
-					switch(i)
-					{
-						case 0:
-							getShader().r = strumRGB.r = color;
-						case 1:
-							getShader().g = strumRGB.g = color;
-						case 2:
-							getShader().b = strumRGB.b = color;
-					}
-					dataArray[curSelectedNote][i] = color;
-				}
-			}
-			setShaderColor(!onPixel ? ClientPrefs.defaultData.arrowRGB[curSelectedNote][curSelectedMode] : ClientPrefs.defaultData.arrowRGBPixel[curSelectedNote][curSelectedMode]);
-			FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
-			updateColors();
+			resetSelectedColor(FlxG.keys.pressed.SHIFT || FlxG.gamepads.anyPressed(LEFT_SHOULDER), FlxG.keys.pressed.ALT);
 		}
+	}
+
+	function resetSelectedColor(wholeNote:Bool, vanilla:Bool = false):Void
+	{
+		if (!customColorsEnabled) return;
+		var defaults = vanilla ? (onPixel ? ClientPrefs.defaultData.arrowRGBPixel : ClientPrefs.defaultData.arrowRGB) : skinDefaults;
+		if (wholeNote)
+		{
+			for (i in 0...3) dataArray[curSelectedNote][i] = defaults[curSelectedNote][i];
+			var rgb = myNotes.members[curSelectedNote].rgbShader;
+			getShader().r = rgb.r = dataArray[curSelectedNote][0];
+			getShader().g = rgb.g = dataArray[curSelectedNote][1];
+			getShader().b = rgb.b = dataArray[curSelectedNote][2];
+		}
+		else setShaderColor(defaults[curSelectedNote][curSelectedMode]);
+		FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
+		updateColors();
 	}
 
 	function pointerOverlaps(obj:Dynamic)
@@ -558,8 +613,7 @@ class NotesColorSubState extends MusicBeatSubstate
 		
 		modeBG.visible = false;
 		notesBG.visible = true;
-		bigNote.rgbShader.parent = Note.globalRgbShaders[curSelectedNote];
-		bigNote.shader = Note.globalRgbShaders[curSelectedNote].shader;
+		selectBigNoteColor(curSelectedNote);
 		updateNotes();
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
@@ -581,7 +635,9 @@ class NotesColorSubState extends MusicBeatSubstate
 	var bigNote:Note;
 	public function spawnNotes()
 	{
-		dataArray = !onPixel ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
+		dataArray = NoteSkinData.getColors(onPixel);
+		skinDefaults = NoteSkinData.getColors(onPixel, null, true);
+		hasSkinPalette = NoteSkinData.load(NoteSkinData.resolveImage(null, onPixel), 'notes').defaultColors != null;
 		var previousUI = PlayState.stageUI;
 		PlayState.stageUI = onPixel ? "pixel" : "normal";
 
@@ -649,8 +705,7 @@ class NotesColorSubState extends MusicBeatSubstate
 		bigNote.setPosition(250, 325);
 		bigNote.setGraphicSize(250);
 		bigNote.updateHitbox();
-		bigNote.rgbShader.parent = Note.globalRgbShaders[curSelectedNote];
-		bigNote.shader = Note.globalRgbShaders[curSelectedNote].shader;
+		selectBigNoteColor(curSelectedNote);
 		for (i in 0...Note.colArray.length)
 		{
 			if(!onPixel) bigNote.animation.addByPrefix('note$i', Note.colArray[i] + '0', 24, true);
@@ -659,6 +714,13 @@ class NotesColorSubState extends MusicBeatSubstate
 		insert(members.indexOf(myNotes) + 1, bigNote);
 		_storedColor = getShaderColor();
 		PlayState.stageUI = previousUI;
+		updateTip();
+	}
+
+	function selectBigNoteColor(index:Int):Void
+	{
+		bigNote.rgbShader.parent = Note.globalRgbShaders[index];
+		bigNote.rgbShader.enabled = true;
 	}
 
 	function updateNotes(?instant:Bool = false)
@@ -709,7 +771,10 @@ class NotesColorSubState extends MusicBeatSubstate
 		}
 	}
 
-	function setShaderColor(value:FlxColor) dataArray[curSelectedNote][curSelectedMode] = value;
+	function setShaderColor(value:FlxColor)
+	{
+		if (customColorsEnabled) dataArray[curSelectedNote][curSelectedMode] = value;
+	}
 	function getShaderColor() return dataArray[curSelectedNote][curSelectedMode];
 	function getShader() return Note.globalRgbShaders[curSelectedNote];
 

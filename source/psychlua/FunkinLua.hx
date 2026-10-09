@@ -1862,6 +1862,8 @@ class FunkinLua {
 
 		if (changed == null || changed.contains('noteSkin')) set('noteSkin', ClientPrefs.data.noteSkin);
 		if (changed == null || changed.contains('noteSkin')) set('noteSkinPostfix', Note.getNoteSkinPostfix());
+		if (changed == null || changed.contains('customNoteColors')) set('customNoteColors', ClientPrefs.data.customNoteColors);
+		if (changed == null || changed.contains('customNoteColorsPixel')) set('customNoteColorsPixel', ClientPrefs.data.customNoteColorsPixel);
 		if (changed == null || changed.contains('splashSkin')) set('splashSkin', ClientPrefs.data.splashSkin);
 		if (changed == null || changed.contains('splashSkin')) set('splashSkinPostfix', NoteSplash.getSplashSkinPostfix());
 		if (changed == null || changed.contains('splashAlpha')) set('splashAlpha', ClientPrefs.data.splashAlpha);

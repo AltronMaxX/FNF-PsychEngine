@@ -1,6 +1,7 @@
 package options;
 
 import backend.ClientPrefs.VisualOptions;
+import backend.NoteSkinData;
 
 import objects.Note;
 import objects.StrumNote;
@@ -257,13 +258,11 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 
 	function changeNoteSkin(note:StrumNote)
 	{
-		var skin:String = Note.defaultNoteSkin;
-		var customSkin:String = skin + Note.getNoteSkinPostfix();
-		var path:String = PlayState.isPixelStage ? 'pixelUI/' : '';
-		if(Paths.fileExists('images/$path$customSkin.png', IMAGE)) skin = customSkin;
-
-		note.texture = skin; //Load texture and anims
+		var parent = note.rgbShader.parent;
+		var previous = [parent.r, parent.g, parent.b];
+		note.texture = StrumNote.getDefaultTexture();
 		note.reloadNote();
+		note.rgbShader.refreshColors(previous, NoteSkinData.getColors(null, note.colorSkinImage)[note.ID % 4]);
 		note.playAnim('static');
 	}
 

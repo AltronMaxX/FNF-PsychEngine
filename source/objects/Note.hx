@@ -2,6 +2,7 @@ package objects;
 
 import backend.animation.PsychAnimationController;
 import backend.NoteTypesConfig;
+import backend.NoteSkinData;
 
 import shaders.RGBPalette;
 import shaders.RGBPalette.RGBShaderReference;
@@ -86,6 +87,8 @@ class Note extends NoteSkinSprite
 	public var rgbShader:RGBShaderReference;
 	public static var globalRgbShaders:Array<RGBPalette> = [];
 	public var inEditor:Bool = false;
+	public var colorSkinImage(default, null):String;
+	public var usesDefaultColorsImage(default, null):Bool = false;
 
 	public var animSuffix:String = '';
 	public var gfNote:Bool = false;
@@ -173,8 +176,7 @@ class Note extends NoteSkinSprite
 
 	public function defaultRGB()
 	{
-		var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData];
-		if(PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData];
+		var arr:Array<FlxColor> = NoteSkinData.getColors(null, colorSkinImage)[noteData];
 
 		if (arr != null && noteData > -1 && noteData <= arr.length)
 		{
@@ -229,6 +231,7 @@ class Note extends NoteSkinSprite
 			if (value != null && value.length > 1) NoteTypesConfig.applyNoteTypeData(this, value);
 			if (hitsound != 'hitsound' && hitsoundVolume > 0) Paths.sound(hitsound); //precache new sound for being idiot-proof
 			noteType = value;
+			if (usesDefaultColorsImage && !rgbShader.allowNew) reloadNote(texture);
 		}
 		return value;
 	}
@@ -293,9 +296,6 @@ class Note extends NoteSkinSprite
 
 			offsetX -= width / 2;
 
-			if (PlayState.isPixelStage)
-				offsetX += 30;
-
 			if (prevNote.isSustainNote)
 			{
 				prevNote.animation.play(colArray[prevNote.noteData % colArray.length] + 'hold');
@@ -331,7 +331,7 @@ class Note extends NoteSkinSprite
 		if(globalRgbShaders[noteData] == null)
 		{
 			var newRGB:RGBPalette = new RGBPalette();
-			var arr:Array<FlxColor> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB[noteData] : ClientPrefs.data.arrowRGBPixel[noteData];
+			var arr:Array<FlxColor> = NoteSkinData.getColors()[noteData];
 			
 			if (arr != null && noteData > -1 && noteData <= arr.length)
 			{
@@ -352,7 +352,7 @@ class Note extends NoteSkinSprite
 	}
 
 	var _lastNoteOffX:Float = 0;
-	static var _lastValidChecked:String; //optimization
+	var sustainHeadFrameWidth:Float = 0;
 	public var originalHeight:Float = 6;
 	public var correctionOffset:Float = 0; //dont mess with this
 	public function reloadNote(texture:String = '', postfix:String = '') {
@@ -373,47 +373,50 @@ class Note extends NoteSkinSprite
 			animName = animation.curAnim.name;
 		}
 
-		var skinPixel:String = skin;
 		var lastScaleY:Float = scale.y;
-		var skinPostfix:String = getNoteSkinPostfix();
-		var customSkin:String = skin + skinPostfix;
-		var path:String = PlayState.isPixelStage ? 'pixelUI/' : '';
-		if(customSkin == _lastValidChecked || Paths.fileExists('images/' + path + customSkin + '.png', IMAGE))
-		{
-			skin = customSkin;
-			_lastValidChecked = customSkin;
-		}
-		else skinPostfix = '';
+		colorSkinImage = NoteSkinData.resolveImage(skin);
+		var config = NoteSkinData.load(colorSkinImage, isSustainNote ? 'sustains' : 'notes');
+		var alternate = texture.length == 0 && noteType != 'Hurt Note' && rgbShader.allowNew
+			? config.defaultImage(PlayState.isPixelStage, isSustainNote) : null;
+		usesDefaultColorsImage = alternate != null;
+		rgbShader.textureAllowsRGB = !usesDefaultColorsImage;
+		var image = usesDefaultColorsImage ? alternate
+			: (PlayState.isPixelStage && isSustainNote ? NoteSkinData.pixelSustainImage(colorSkinImage) : colorSkinImage);
 
 		if(PlayState.isPixelStage) {
 			if(isSustainNote) {
-				loadSkinData('pixelUI/' + skinPixel + 'ENDS' + skinPostfix, 'sustains');
-				var graphic = Paths.image('pixelUI/' + skinPixel + 'ENDS' + skinPostfix);
+				loadSkinData(NoteSkinData.pixelSustainImage(colorSkinImage), 'sustains');
+				var graphic = Paths.image(image);
 				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 2));
 				originalHeight = graphic.height / 2;
 			} else {
-				loadSkinData('pixelUI/' + skinPixel + skinPostfix, 'notes');
-				var graphic = Paths.image('pixelUI/' + skinPixel + skinPostfix);
+				loadSkinData(colorSkinImage, 'notes');
+				var graphic = Paths.image(image);
 				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 5));
 			}
 			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
 			loadPixelNoteAnims();
 			antialiasing = false;
 
-			if(isSustainNote) {
-				offsetX += _lastNoteOffX;
-				_lastNoteOffX = (width - 7) * (PlayState.daPixelZoom / 2);
-				offsetX -= _lastNoteOffX;
-			}
 		} else {
-			loadSkinData(skin, isSustainNote ? 'sustains' : 'notes');
-			frames = Paths.getSparrowAtlas(skin);
+			loadSkinData(colorSkinImage, isSustainNote ? 'sustains' : 'notes');
+			frames = Paths.getSparrowAtlas(image);
+			sustainHeadFrameWidth = frameWidth;
 			loadNoteAnims();
 			if(!isSustainNote)
 			{
 				centerOffsets();
 				centerOrigin();
 			}
+		}
+		if (PlayState.isPixelStage && isSustainNote)
+		{
+			// Both values are unscaled grid-cell widths. Do not apply pixel zoom twice.
+			var headImage = usesDefaultColorsImage ? config.defaultImage(true) : null;
+			var headWidth = Math.floor(Paths.image(headImage != null ? headImage : colorSkinImage).width / 4);
+			offsetX += _lastNoteOffX;
+			_lastNoteOffX = (frameWidth - headWidth) * (PlayState.daPixelZoom / 2);
+			offsetX -= _lastNoteOffX;
 		}
 
 		if(isSustainNote) {
@@ -425,16 +428,46 @@ class Note extends NoteSkinSprite
 			animation.play(animName, true);
 	}
 
+	public function refreshColors(previous:Array<FlxColor>):Void
+	{
+		rgbShader.refreshColors(previous, NoteSkinData.getColors(null, colorSkinImage)[noteData]);
+	}
+
 	public function refreshSkin()
 	{
+		// A script's unchanged texture may deliberately use a different logical
+		// size/offset from its drawing scale. A palette change must not reset it.
+		if (texture != null && texture.length > 0 && NoteSkinData.resolveImage(texture) == colorSkinImage) return;
 		var rgbEnabled:Bool = rgbShader.enabled;
 		var scaleX:Float = scale.x;
 		var scaleY:Float = scale.y;
+		var previousOffsetX:Float = offsetX;
+		var previousFrameWidth:Int = frameWidth;
+		var previousFrameHeight:Int = frameHeight;
+		var previousSustainCenter:Float = (sustainHeadFrameWidth - frameWidth) * Math.abs(scaleX) / 2;
 		var sustainHeight:Float = frameHeight * scaleY;
 		reloadNote(texture);
 		rgbShader.enabled = rgbEnabled;
 		scale.set(scaleX, isSustainNote ? sustainHeight / frameHeight : scaleY);
 		updateHitbox();
+		if (isSustainNote && !PlayState.isPixelStage)
+		{
+			// Replace only the skin's centering contribution; retain offsets added by scripts.
+			// Pixel sustains already replace their grid-based offset in reloadNote().
+			offsetX += (sustainHeadFrameWidth - frameWidth) * Math.abs(scaleX) / 2 - previousSustainCenter;
+		}
+		// Options can close while gameplay is still paused. Apply the offset delta
+		// now, without waiting for followStrumNote or replacing script-owned positions.
+		if (isSustainNote && copyX) x += offsetX - previousOffsetX;
+		if (isSustainNote && clipRect != null)
+		{
+			// Keep the already-consumed portion in the new atlas's coordinates,
+			// without waiting for the next gameplay clipping pass.
+			var ratioX:Float = frameWidth / previousFrameWidth;
+			var ratioY:Float = frameHeight / previousFrameHeight;
+			clipRect.set(clipRect.x * ratioX, clipRect.y * ratioY, clipRect.width * ratioX, clipRect.height * ratioY);
+			clipRect = clipRect;
+		}
 	}
 
 	public static function getNoteSkinPostfix(?noteSkin:String)
@@ -511,12 +544,6 @@ class Note extends NoteSkinSprite
 			if (alpha > 0.3)
 				alpha = 0.3;
 		}
-	}
-
-	override public function destroy()
-	{
-		super.destroy();
-		_lastValidChecked = '';
 	}
 
 	public function followStrumNote(myStrum:StrumNote, fakeCrochet:Float, songSpeed:Float = 1)

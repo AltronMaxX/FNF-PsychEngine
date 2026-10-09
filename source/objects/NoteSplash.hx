@@ -1,6 +1,7 @@
 package objects;
 
 import backend.animation.PsychAnimationController;
+import backend.NoteSkinData;
 import shaders.RGBPalette;
 import flixel.system.FlxAssets.FlxShader;
 
@@ -40,6 +41,7 @@ class NoteSplash extends FlxSprite
 	public var inEditor:Bool = false;
 
 	var spawned:Bool = false;
+	var sourceNote:Note;
 	var noteDataMap:Map<Int, String> = new Map();
 
 	public static var defaultNoteSplash(default, never):String = "noteSplashes/noteSplashes";
@@ -197,9 +199,7 @@ class NoteSplash extends FlxSprite
 
 		if (!inEditor)
 		{
-			var loadedTexture:String = defaultNoteSplash + getSplashSkinPostfix();
-			if (note != null && note.noteSplashData.texture != null) loadedTexture = note.noteSplashData.texture;
-			else if (PlayState.SONG != null && PlayState.SONG.splashSkin != null && PlayState.SONG.splashSkin.length > 0) loadedTexture = PlayState.SONG.splashSkin;
+			var loadedTexture:String = resolveTexture(note);
 
 			if (texture != loadedTexture) loadSplash(loadedTexture);
 		}
@@ -218,64 +218,8 @@ class NoteSplash extends FlxSprite
 		this.noteData = noteData;
 		var anim:String = playDefaultAnim();
 
-		var tempShader:RGBPalette = null;
-		if (config.allowRGB)
-		{
-			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
-			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
-			{
-				tempShader = new RGBPalette();
-				// If Note RGB is enabled:
-				if ((note == null || !note.noteSplashData.useGlobalShader) || inEditor)
-				{
-					var colors = config.rgb;
-					if (colors != null)
-					{
-						for (i in 0...colors.length)
-						{
-							if (i > 2) break;
-
-							var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData % Note.colArray.length];
-							if (PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData % Note.colArray.length];
-
-							var rgb = colors[i];
-							if (rgb == null)
-							{
-								if (i == 0) tempShader.r = arr[0];
-								else if (i == 1) tempShader.g = arr[1];
-								else if (i == 2) tempShader.b = arr[2];
-								continue;
-							}
-
-							var r:Null<Int> = rgb.r; 
-							var g:Null<Int> = rgb.g;
-							var b:Null<Int> = rgb.b;
-
-							if (r == null || Math.isNaN(r) || r < 0) r = arr[0];
-							if (g == null || Math.isNaN(g) || g < 0) g = arr[1];
-							if (b == null || Math.isNaN(b) || b < 0) b = arr[2];
-
-							var color:FlxColor = FlxColor.fromRGB(r, g, b);
-							if (i == 0) tempShader.r = color;
-							else if (i == 1) tempShader.g = color;
-							else if (i == 2) tempShader.b = color;
-						}
-					}
-					else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
-
-					if (note != null)
-					{
-						if (note.noteSplashData.r != -1) tempShader.r = note.noteSplashData.r;
-						if (note.noteSplashData.g != -1) tempShader.g = note.noteSplashData.g;
-						if (note.noteSplashData.b != -1) tempShader.b = note.noteSplashData.b;
-					}
-				}
-				else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
-			}
-		}
-		rgbShader.copyValues(tempShader);
-		if (!config.allowPixel) rgbShader.pixelAmount = 1;
-		else if (PlayState.isPixelStage) rgbShader.pixelAmount = 6;
+		sourceNote = note;
+		refreshColors();
 
 		offset.set(10, 10);
 		var conf:NoteSplashAnim = config.animations.get(anim);
@@ -315,7 +259,125 @@ class NoteSplash extends FlxSprite
 
 		spawned = true;
 	}
-	
+
+	function resolveTexture(note:Note):String
+	{
+		if (note != null && note.noteSplashData.texture != null && note.noteSplashData.texture.length > 0)
+			return note.noteSplashData.texture;
+		if (PlayState.SONG != null && PlayState.SONG.splashSkin != null && PlayState.SONG.splashSkin.length > 0)
+			return PlayState.SONG.splashSkin;
+		return defaultNoteSplash + getSplashSkinPostfix();
+	}
+
+	/** Replace a paused effect's skin at the same point in its animation. */
+	public function refreshSkin():Void
+	{
+		if (inEditor) return;
+		var image = resolveTexture(sourceNote);
+		if (texture == image) return;
+		var oldAnim = animation.curAnim;
+		var phase:Float = oldAnim != null ? (oldAnim.curFrame + @:privateAccess oldAnim._frameTimer * oldAnim.frameRate) / oldAnim.numFrames : 0;
+		var oldConfig = oldAnim != null ? config.animations.get(oldAnim.name) : null;
+		var oldOffsets = oldConfig != null && oldConfig.offsets != null ? oldConfig.offsets : [0.0, 0.0];
+		var extraX = offset.x - 10 - oldOffsets[0];
+		var extraY = offset.y - 10 - oldOffsets[1];
+		var scaleX = scale.x / config.scale;
+		var scaleY = scale.y / config.scale;
+		var data = noteData;
+		loadSplash(image);
+		noteData = maxAnims > 0 ? data % (maxAnims * Note.colArray.length) : data % Note.colArray.length;
+		var animName = playDefaultAnim();
+		var conf = config.animations.get(animName);
+		var offsets = conf != null && conf.offsets != null ? conf.offsets : [0.0, 0.0];
+		scale.set(scaleX * config.scale, scaleY * config.scale);
+		offset.set(10 + offsets[0] + extraX, 10 + offsets[1] + extraY);
+		if (oldAnim != null && animation.curAnim != null)
+		{
+			var anim = animation.curAnim;
+			var frame = FlxMath.bound(phase * anim.numFrames, 0, anim.numFrames - 0.000001);
+			anim.curFrame = Std.int(frame);
+			anim.paused = oldAnim.paused;
+			@:privateAccess anim._frameTimer = anim.frameRate > 0 ? (frame - anim.curFrame) / anim.frameRate : 0;
+			@:privateAccess anim.finished = oldAnim.finished;
+		}
+		antialiasing = sourceNote != null ? sourceNote.noteSplashData.antialiasing : ClientPrefs.data.antialiasing;
+		if (PlayState.isPixelStage && config.allowPixel) antialiasing = false;
+	}
+
+	public function refreshAlpha(previous:Float):Void
+	{
+		if (sourceNote != null && sourceNote.noteSplashData.a == previous)
+			sourceNote.noteSplashData.a = ClientPrefs.data.splashAlpha;
+		if (alpha == previous && (sourceNote == null || sourceNote.noteSplashData.a == ClientPrefs.data.splashAlpha))
+			alpha = ClientPrefs.data.splashAlpha;
+	}
+
+	/** Retint an existing splash without restarting its animation. */
+	public function refreshColors():Void
+	{
+		var note = sourceNote;
+		// A hit head may already have been removed; its default skin no longer updates.
+		var image = note != null && note.texture != null && note.texture.length > 0 ? note.colorSkinImage
+			: (babyArrow != null ? babyArrow.colorSkinImage : NoteSkinData.resolveImage());
+		var tempShader:RGBPalette = null;
+		if (config.allowRGB)
+		{
+			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
+			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
+			{
+				tempShader = new RGBPalette();
+				// If Note RGB is enabled:
+				if ((note == null || !note.noteSplashData.useGlobalShader) || inEditor)
+				{
+					var colors = config.rgb;
+					if (colors != null)
+					{
+						for (i in 0...colors.length)
+						{
+							if (i > 2) break;
+
+							var arr = NoteSkinData.getColors(null, image)[noteData % Note.colArray.length];
+
+							var rgb = colors[i];
+							if (rgb == null)
+							{
+								if (i == 0) tempShader.r = arr[0];
+								else if (i == 1) tempShader.g = arr[1];
+								else if (i == 2) tempShader.b = arr[2];
+								continue;
+							}
+
+							var r:Null<Int> = rgb.r;
+							var g:Null<Int> = rgb.g;
+							var b:Null<Int> = rgb.b;
+
+							if (r == null || Math.isNaN(r) || r < 0) r = arr[i].red;
+							if (g == null || Math.isNaN(g) || g < 0) g = arr[i].green;
+							if (b == null || Math.isNaN(b) || b < 0) b = arr[i].blue;
+
+							var color:FlxColor = FlxColor.fromRGB(r, g, b);
+							if (i == 0) tempShader.r = color;
+							else if (i == 1) tempShader.g = color;
+							else if (i == 2) tempShader.b = color;
+						}
+					}
+					else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+
+					if (note != null)
+					{
+						if (note.noteSplashData.r != -1) tempShader.r = note.noteSplashData.r;
+						if (note.noteSplashData.g != -1) tempShader.g = note.noteSplashData.g;
+						if (note.noteSplashData.b != -1) tempShader.b = note.noteSplashData.b;
+					}
+				}
+				else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+			}
+		}
+		rgbShader.copyValues(tempShader);
+		if (!config.allowPixel) rgbShader.pixelAmount = 1;
+		else if (PlayState.isPixelStage) rgbShader.pixelAmount = 6;
+	}
+
 	public function playDefaultAnim()
 	{
 		var anim:String = noteDataMap.get(noteData);
@@ -387,7 +449,7 @@ class NoteSplash extends FlxSprite
 		return config;
 	}
 
-	function set_config(value:NoteSplashConfig):NoteSplashConfig 
+	function set_config(value:NoteSplashConfig):NoteSplashConfig
 	{
 		if (value == null) value = createConfig();
 
@@ -426,6 +488,7 @@ class NoteSplash extends FlxSprite
 
 class NoteHoldCover extends FlxSprite
 {
+	public var rgbShader:RGBPalette;
 	public var babyArrow:StrumNote;
 	public var note:Note;
 	public var inEditor:Bool = false;
@@ -438,6 +501,8 @@ class NoteHoldCover extends FlxSprite
 	public function new()
 	{
 		super();
+		rgbShader = new RGBPalette();
+		shader = rgbShader.shader;
 		scrollFactor.set();
 		animation.finishCallback = function(name:String)
 		{
@@ -455,15 +520,14 @@ class NoteHoldCover extends FlxSprite
 		previewTime = 0.8;
 		endTime = source != null ? source.strumTime + source.sustainLength : 0;
 		pixel = PlayState.isPixelStage;
-		var color:String = ['Purple', 'Blue', 'Green', 'Red'][arrow.ID % 4];
-		var path:String = 'holdCovers/' + (pixel ? 'pixelNoteHoldCover' : 'holdCover' + color);
+		var path = getTexture(pixel);
 		if (texture != path)
 		{
 			texture = path;
 			frames = Paths.getSparrowAtlas(path);
-			animation.addByPrefix('hold', pixel ? 'loop' : 'holdCover' + color, 24, true);
-			animation.addByPrefix('end', pixel ? 'explode' : 'holdCoverEnd' + color, 24, false);
-			if (!pixel) animation.addByPrefix('start', 'holdCoverStart' + color, 24, false);
+			animation.addByPrefix('hold', 'hold', 24, true);
+			animation.addByPrefix('end', 'end', 24, false);
+			if (!pixel) animation.addByPrefix('start', 'start', 24, false);
 		}
 		// Pixel loop artwork is centered at (17, 19.5), inside the atlas trim (56, 10).
 		// Keep the same anchor for the burst so switching animations does not move it.
@@ -495,12 +559,21 @@ class NoteHoldCover extends FlxSprite
 	public function refreshAppearance()
 	{
 		if (babyArrow == null) return;
+		// The cover is always an RGB mask, including when the receptor uses its
+		// baked default image. Its palette still follows that receptor and events.
+		rgbShader.copyValues(babyArrow.rgbShader.parent);
+		// R follows the receptor; the bright core remains white for any palette.
+		rgbShader.g = FlxColor.WHITE;
+		if (pixel) rgbShader.r = rgbShader.b = FlxColor.WHITE;
 		setPosition(babyArrow.x + babyArrow.width / 2, babyArrow.y + babyArrow.height / 2);
 		scale.set(babyArrow.scale.x / (pixel ? 1 : 0.7), babyArrow.scale.y / (pixel ? 1 : 0.7));
 		angle = babyArrow.direction - 90;
 		alpha = babyArrow.alpha * (ending ? ClientPrefs.data.holdSplashAlpha : ClientPrefs.data.holdCoverAlpha);
 		visible = babyArrow.visible;
 	}
+
+	public static function getTexture(pixel:Bool):String
+		return pixel ? 'pixelUI/holdCovers/noteHoldCover' : 'noteHoldCovers/noteHoldCover';
 
 	override function update(elapsed:Float)
 	{
@@ -521,7 +594,7 @@ class NoteHoldCover extends FlxSprite
 	}
 }
 
-class PixelSplashShaderRef 
+class PixelSplashShaderRef
 {
 	public var shader:PixelSplashShader = new PixelSplashShader();
 	public var enabled(default, set):Bool = true;
