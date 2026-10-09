@@ -178,6 +178,9 @@ class Main extends Sprite
 		FlxG.mouse.visible = false;
 		#end
 
+		// Main is constructed before it reaches the stage. FlxGame.create() resets
+		// FlxG afterwards, so restore variable timing after every game reset too.
+		FlxG.signals.postGameReset.add(function() { FlxG.fixedTimestep = false; });
 		FlxG.fixedTimestep = false;
 		FlxG.game.focusLostFramerate = 60;
 		FlxG.keys.preventDefaultKeys = [TAB];
