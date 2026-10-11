@@ -184,6 +184,8 @@
 	<haxedef name="message.reporting" value="pretty" />
 
 	<!--Macro fixes-->
+	<!-- Refresh native text metrics when OpenFL 9.3.3 changes font size on Lime 8.2.3. -->
+	<haxeflag name="--macro" value="backend.macros.LimeTextCompat.install()" />
 	<haxeflag name="--macro" value="allowPackage('flash')" />
 	<haxeflag name="--macro" value="include('my.pack')" />
 
