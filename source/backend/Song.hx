@@ -16,6 +16,7 @@ typedef SwagSong =
 	var needsVoices:Bool;
 	var speed:Float;
 	var offset:Float;
+	@:optional var keys:Int;
 	@:optional var artist:String;
 	@:optional var charter:String;
 
@@ -62,6 +63,7 @@ class Song
 	public var gameOverCameraPosition:Array<Float>;
 	public var disableNoteRGB:Bool = false;
 	public var speed:Float = 1;
+	public var keys:Int = 4;
 	public var stage:String;
 	public var player1:String = 'bf';
 	public var player2:String = 'dad';
@@ -70,6 +72,7 @@ class Song
 
 	public static function convert(songJson:Dynamic) // Convert old charts to psych_v1 format
 	{
+		var keys = KeyMode.count(songJson.keys);
 		if(songJson.gfVersion == null)
 		{
 			songJson.gfVersion = songJson.player3;
@@ -114,8 +117,8 @@ class Song
 
 			for (note in section.sectionNotes)
 			{
-				var gottaHitNote:Bool = (note[1] < 4) ? section.mustHitSection : !section.mustHitSection;
-				note[1] = (note[1] % 4) + (gottaHitNote ? 0 : 4);
+				var gottaHitNote:Bool = (note[1] < keys) ? section.mustHitSection : !section.mustHitSection;
+				note[1] = (note[1] % keys) + (gottaHitNote ? 0 : keys);
 
 				if(!Std.isOfType(note[3], String))
 					note[3] = Note.defaultNoteTypes[note[3]]; //compatibility with Week 7 and 0.1-0.3 psych charts
@@ -169,6 +172,7 @@ class Song
 				songJson = subSong;
 		}
 
+		songJson.keys = KeyMode.normalize(songJson.keys);
 		if(convertTo != null && convertTo.length > 0)
 		{
 			var fmt:String = songJson.format;

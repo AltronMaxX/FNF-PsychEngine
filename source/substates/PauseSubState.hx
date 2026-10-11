@@ -4,6 +4,7 @@ import states.PlayState;
 import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
+import backend.InputFormatter;
 
 import flixel.util.FlxStringUtil;
 
@@ -22,6 +23,7 @@ class PauseSubState extends MusicBeatSubstate
 
 	var pauseMusic:FlxSound;
 	var practiceText:FlxText;
+	var controlsText:FlxText;
 	var skipTimeText:FlxText;
 	var skipTimeTracker:Alphabet;
 	var curTime:Float = Math.max(0, Conductor.songPosition);
@@ -90,6 +92,14 @@ class PauseSubState extends MusicBeatSubstate
 		bg.alpha = 0;
 		bg.scrollFactor.set();
 		add(bg);
+
+		controlsText = new FlxText(20, 15, FlxG.width / 2 - 40, '', 28);
+		controlsText.setFormat(Paths.font('vcr.ttf'), 28, FlxColor.WHITE, LEFT, NONE);
+		controlsText.scrollFactor.set();
+		refreshControlsText();
+		controlsText.alpha = 0;
+		add(controlsText);
+		FlxTween.tween(controlsText, {alpha: 1}, 0.4, {ease: FlxEase.quartInOut});
 
 		var objY:Int = 15;
 
@@ -216,6 +226,36 @@ class PauseSubState extends MusicBeatSubstate
 		openSubState(new OptionsSubState(this));
 	}
 
+	/** Lane order is the same as the song, using the player's current bindings. */
+	public static function controlsLabel(keys:Int, gamepad:Bool):String
+	{
+		var lanes:Array<String> = [];
+		for (action in KeyMode.actions(keys))
+		{
+			var names:Array<String> = [];
+			if (gamepad) {
+				var binds = ClientPrefs.gamepadBinds.get(action);
+				if (binds != null) for (key in binds) if ((cast key:Int) >= 0)
+					names.push(InputFormatter.getGamepadName(key));
+			} else {
+				var binds = ClientPrefs.keyBinds.get(action);
+				if (binds != null) for (key in binds) if ((cast key:Int) >= 0)
+					names.push(InputFormatter.getKeyName(key));
+			}
+			lanes.push(names.length > 0 ? names.join('/') : '---');
+		}
+		return Language.getPhrase('pause_controls_label', 'Controls ({1}K):', [keys]) + '\n' + lanes.join(' | ');
+	}
+	function refreshControlsText():Void
+	{
+		var label = controlsLabel(KeyMode.songKeys(), controls.controllerMode);
+		if (controlsText.text != label) {
+			controlsText.text = label;
+			controlsText.size = 28;
+			while (controlsText.height > 240 && controlsText.size > 16) controlsText.size -= 2;
+		}
+	}
+
 	public function reloadPauseMusic()
 	{
 		var volume:Float = pauseMusic.volume;
@@ -248,6 +288,7 @@ class PauseSubState extends MusicBeatSubstate
 	override function update(elapsed:Float)
 	{
 		cantUnpause -= elapsed;
+		refreshControlsText();
 
 		super.update(elapsed);
 

@@ -160,7 +160,9 @@ class FunkinLua {
 			set('botPlay', game.cpuControlled);
 			set('practice', game.practiceMode);
 	
-			for (i in 0...4) {
+			set('keys', PlayState.SONG.keys);
+			set('keyCount', KeyMode.songKeys());
+			for (i in 0...KeyMode.songKeys()) {
 				set('defaultPlayerStrumX' + i, 0);
 				set('defaultPlayerStrumY' + i, 0);
 				set('defaultOpponentStrumX' + i, 0);

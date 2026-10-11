@@ -88,7 +88,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		['Play Sound', "Value 1: Sound file name\nValue 2: Volume (Default: 1), ranges from 0 to 1"]
 	];
 	
-	public static var keysArray:Array<FlxKey> = [ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT]; //Used for Vortex Editor
+	public static var keysArray:Array<FlxKey> = [ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,
+		NUMPADONE, NUMPADTWO, NUMPADTHREE, NUMPADFOUR, NUMPADFIVE, NUMPADSIX, NUMPADSEVEN, NUMPADEIGHT, NUMPADNINE];
 	public static var SHOW_EVENT_COLUMN = true;
 	public static var GRID_COLUMNS_PER_PLAYER = 4;
 	public static var GRID_PLAYERS = 2;
@@ -238,6 +239,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 	override function create()
 	{
+		GRID_COLUMNS_PER_PLAYER = KeyMode.songKeys();
 		if(Difficulty.list.length < 1) Difficulty.resetList();
 		_keysPressedBuffer.resize(keysArray.length);
 
@@ -318,28 +320,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		timeLine.scrollFactor.set();
 		add(timeLine);
 		
-		var startX:Float = gridBg.x;
-		var startY:Float = FlxG.height/2;
-		vortexIndicator.visible = strumLineNotes.visible = strumLineNotes.active = vortexEnabled;
-		if(SHOW_EVENT_COLUMN) startX += GRID_SIZE;
-
-		for (i in 0...Std.int(GRID_PLAYERS * GRID_COLUMNS_PER_PLAYER))
-		{
-			var note:StrumNote = new StrumNote(startX + (GRID_SIZE * i), startY, i % GRID_COLUMNS_PER_PLAYER, 0);
-			note.scrollFactor.set();
-			note.playAnim('static');
-			note.alpha = 0.4;
-			note.updateHitbox();
-			if(note.width > note.height)
-				note.setGraphicSize(GRID_SIZE);
-			else
-				note.setGraphicSize(0, GRID_SIZE);
-	
-			note.updateHitbox();
-			note.x += GRID_SIZE/2 - note.width/2;
-			note.y += GRID_SIZE/2 - note.height/2;
-			strumLineNotes.add(note);
-		}
+		rebuildStrumLine();
 
 		var columns:Int = 0;
 		var iconX:Float = gridBg.x;
@@ -659,6 +640,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	{
 		updateJsonData();
 		loadMusic();
+		if (GRID_COLUMNS_PER_PLAYER != KeyMode.songKeys()) refreshKeysLayout();
 		reloadNotes();
 		onChartLoaded();
 		updateHeads(true);
@@ -682,6 +664,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		charterInputText.text = PlayState.SONG.charter ?? "None";
 
 		bpmStepper.value = PlayState.SONG.bpm;
+		keysStepper.value = KeyMode.normalize(PlayState.SONG.keys);
 		scrollSpeedStepper.value = PlayState.SONG.speed;
 		audioOffsetStepper.value = Reflect.hasField(PlayState.SONG, 'offset') ? PlayState.SONG.offset : 0;
 		Conductor.offset = audioOffsetStepper.value;
@@ -881,9 +864,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					trace('Vortex editor press at time: $strumTime');
 					var deletedNotes:Array<MetaNote> = [];
 					var addedNotes:Array<MetaNote> = [];
-					for (num => press in _keysPressedBuffer)
+					for (index => press in _keysPressedBuffer)
 					{
 						if(!press) continue;
+						// Preserve 1–8 in 4K; other modes use 1–9 and numpad 1–9.
+						var num = GRID_COLUMNS_PER_PLAYER == 4 ? index
+							: (index < 9 ? index : GRID_COLUMNS_PER_PLAYER + index - 9);
+						if (GRID_COLUMNS_PER_PLAYER != 4 && index % 9 >= GRID_COLUMNS_PER_PLAYER) continue;
+						if (num >= GRID_COLUMNS_PER_PLAYER * GRID_PLAYERS) continue;
 
 						// Try to find a note to delete first
 						var didDelete:Bool = false;
@@ -1001,12 +989,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 						if(time > 0) time += 0.000001; //goes at the start of a section more properly
 						FlxG.sound.music.time = time;
 					}
+					else if(FlxG.mouse.wheel != 0)
+						FlxG.sound.music.time += wheelTimeDelta(FlxG.mouse.wheel, FlxG.keys.pressed.SHIFT, holdingAlt);
 					else
 					{
-						var speedMult:Float = (FlxG.keys.pressed.SHIFT ? 4 : 1) * (FlxG.mouse.wheel != 0 ? 4 : 1) / (holdingAlt ? 4 : 1);
-						if(FlxG.keys.pressed.W || FlxG.mouse.wheel > 0)
+						var speedMult:Float = (FlxG.keys.pressed.SHIFT ? 4 : 1) / (holdingAlt ? 4 : 1);
+						if(FlxG.keys.pressed.W)
 							FlxG.sound.music.time -= Conductor.crochet * speedMult * 1.5 * elapsed / curZoom;
-						else if(FlxG.keys.pressed.S || FlxG.mouse.wheel < 0)
+						else if(FlxG.keys.pressed.S)
 							FlxG.sound.music.time += Conductor.crochet * speedMult * 1.5 * elapsed / curZoom;
 					}
 
@@ -1826,7 +1816,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	function triggerCharacterAnimation(display:FlxSprite, note:MetaNote, sustain:Bool)
 	{
 		if(display == null) return;
-		var direction:Int = note.noteData % 4;
+		var direction:Int = KeyMode.singDirection(note.keyCount, note.noteData);
 		if(Std.isOfType(display, Character))
 		{
 			var character:Character = cast display;
@@ -2115,6 +2105,62 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		eventDescriptionText.text = event != null && event[1] != null ? event[1] : '';
 	}
 
+	function rebuildStrumLine():Void
+	{
+		strumLineNotes.forEachAlive(note -> note.destroy());
+		strumLineNotes.clear();
+		var startX:Float = gridBg.x;
+		var startY:Float = FlxG.height/2;
+		vortexIndicator.visible = strumLineNotes.visible = strumLineNotes.active = vortexEnabled;
+		if(SHOW_EVENT_COLUMN) startX += GRID_SIZE;
+
+		for (i in 0...Std.int(GRID_PLAYERS * GRID_COLUMNS_PER_PLAYER))
+		{
+			var note:StrumNote = new StrumNote(startX + (GRID_SIZE * i), startY, i % GRID_COLUMNS_PER_PLAYER, 0);
+			note.scrollFactor.set();
+			note.playAnim('static');
+			note.alpha = 0.4;
+			note.updateHitbox();
+			if(note.width > note.height)
+				note.setGraphicSize(GRID_SIZE);
+			else
+				note.setGraphicSize(0, GRID_SIZE);
+
+			note.updateHitbox();
+			note.x += GRID_SIZE/2 - note.width/2;
+			note.y += GRID_SIZE/2 - note.height/2;
+			strumLineNotes.add(note);
+		}
+
+	}
+
+	/** Rebuild only objects whose geometry depends on the lane count. */
+	function refreshKeysLayout():Void
+	{
+		GRID_COLUMNS_PER_PLAYER = KeyMode.songKeys();
+		// createGrids also reloads the visible section, so clear obsolete references first.
+		behindRenderedNotes.clear(); curRenderedNotes.clear();
+		selectedNotes = [];
+		createGrids();
+		var stripes = [for (i in 0...GRID_PLAYERS) (SHOW_EVENT_COLUMN ? 1 : 0) + i * GRID_COLUMNS_PER_PLAYER];
+		if (!SHOW_EVENT_COLUMN) stripes.shift();
+		prevGridBg.stripes = nextGridBg.stripes = gridBg.stripes = stripes;
+		var startX = gridBg.x + (SHOW_EVENT_COLUMN ? GRID_SIZE : 0);
+		for (i => icon in icons)
+			icon.x = startX + GRID_SIZE * GRID_COLUMNS_PER_PLAYER * (i + 0.5) - icon.width / 2;
+		if (eventIcon != null) eventIcon.x = gridBg.x + GRID_SIZE * 0.5 - eventIcon.width / 2;
+		eventLockOverlay.x = gridBg.x;
+		waveformSprite.x = startX;
+		vortexIndicator.x = gridBg.x - GRID_SIZE;
+		timeLine.x = gridBg.x;
+		timeLine.setGraphicSize(Std.int(gridBg.width), 4); timeLine.updateHitbox();
+		dummyArrow.x = startX;
+		selectionBox.visible = false;
+		rebuildStrumLine();
+		for (i in 0..._keysPressedBuffer.length) _keysPressedBuffer[i] = false;
+		forceDataUpdate = true;
+	}
+
 	function createGrids()
 	{
 		var destroyed:Bool = false;
@@ -2134,6 +2180,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var columnCount:Int = (GRID_COLUMNS_PER_PLAYER * GRID_PLAYERS) + (SHOW_EVENT_COLUMN ? 1 : 0);
 		gridBg = new ChartingGridSprite(columnCount, gridColors[0], gridColors[1]);
 		gridBg.screenCenter(X);
+		if (GRID_COLUMNS_PER_PLAYER > 4) gridBg.x = Math.min(gridBg.x, 900 - gridBg.width);
 
 		prevGridBg = new ChartingGridSprite(columnCount, gridColorsOther[0], gridColorsOther[1]);
 		nextGridBg = new ChartingGridSprite(columnCount, gridColorsOther[0], gridColorsOther[1]);
@@ -2162,6 +2209,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	function loadChart(song:SwagSong)
 	{
 		PlayState.SONG = song;
+		song.keys = KeyMode.normalize(song.keys);
 		StageData.loadDirectory(PlayState.SONG);
 		Conductor.bpm = PlayState.SONG.bpm;
 	}
@@ -3636,6 +3684,29 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var opponentDropDown:PsychUIDropDownMenu;
 	var girlfriendDropDown:PsychUIDropDownMenu;
 	
+	// Mouse wheel is an event delta, not a held key: do not multiply it by elapsed.
+	function wheelTimeDelta(wheel:Int, fast:Bool, precise:Bool):Float
+		return -wheel * Conductor.stepCrochet * (fast ? 4 : 1) / (precise ? 4 : 1) / curZoom;
+
+	var keysStepper:PsychUINumericStepper;
+	function changeKeys(value:Int):Void
+	{
+		value = KeyMode.normalize(value);
+		var oldKeys = GRID_COLUMNS_PER_PLAYER;
+		var newKeys = KeyMode.count(value);
+		if (oldKeys == newKeys) return;
+		if (isMovingNotes) stopMovingNotes();
+		updateChartData();
+		if (!KeyMode.remapChart(PlayState.SONG, value))
+		{
+			keysStepper.value = oldKeys;
+			showOutput('Move or remove notes in columns above ${newKeys} before reducing Keys.', true);
+			return;
+		}
+		refreshKeysLayout();
+		reloadNotes();
+	}
+
 	function addSongTab()
 	{
 		var tab_group = mainBox.getTab('Song').menu;
@@ -3651,6 +3722,10 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			loadMusic();
 		});
 		var reloadAudioButton:PsychUIButton = new PsychUIButton(objX + 120, objY, 'Reload Audio', function() loadMusic(true), 80);
+		keysStepper = new PsychUINumericStepper(objX + 205, objY + 27, 1, 4, 1, KeyMode.layouts.length, 0, 60);
+		keysStepper.onValueChange = function() changeKeys(Std.int(keysStepper.value));
+		tab_group.add(new FlxText(keysStepper.x, keysStepper.y - 15, 90, 'Keys:'));
+		tab_group.add(keysStepper);
 
 		#if mac
 		var reloadJsonButton:PsychUIButton = new PsychUIButton(objX + 205, objY, 'Reload JSON', function()
@@ -5679,7 +5754,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}
 
 		// Draws
-		var gSize:Int = Std.int(GRID_SIZE * 8);
+		var gSize:Int = width;
 		var hSize:Int = Std.int(gSize / 2);
 		var size:Float = 1;
 

@@ -35,6 +35,7 @@ class NoteSplash extends FlxSprite
 	public var config(default, set):NoteSplashConfig;
 	public var babyArrow:StrumNote;
 	public var noteData:Int = 0;
+	public var noteStyle:Int = 0;
 
 	public var copyX:Bool = true;
 	public var copyY:Bool = true;
@@ -207,10 +208,12 @@ class NoteSplash extends FlxSprite
 		setPosition(x, y);
 
 		if (babyArrow != null)
-			setPosition(babyArrow.x - Note.swagWidth * 0.95, babyArrow.y - Note.swagWidth); // To prevent it from being misplaced for one game tick
+			setPosition(babyArrow.x - 112 * KeyMode.scale(babyArrow.keyCount) * 0.95, babyArrow.y - 112 * KeyMode.scale(babyArrow.keyCount));
 
-		if (note != null)
-			noteData = note.noteData;
+		noteStyle = note != null ? note.noteStyle : (babyArrow != null ? babyArrow.noteStyle : noteData % 4);
+		if (note != null || randomize) noteData = KeyMode.direction(noteStyle);
+		var fieldScale = babyArrow != null ? KeyMode.scale(babyArrow.keyCount) : 1;
+		scale.set(config.scale * fieldScale, config.scale * fieldScale);
 
 		if (randomize && maxAnims > 1)
 			noteData = noteData % Note.colArray.length + (FlxG.random.int(0, maxAnims - 1) * Note.colArray.length);
@@ -230,6 +233,9 @@ class NoteSplash extends FlxSprite
 			offset.x += offsets[0];
 			offset.y += offsets[1];
 		}
+		// Flixel scales around origin, while offsets are in screen pixels.
+		// Scale the complete 4K anchor, including the origin compensation.
+		offset.set(offset.x * fieldScale + origin.x * (1 - fieldScale), offset.y * fieldScale + origin.y * (1 - fieldScale));
 
 		animation.finishCallback = function(name:String) {
 			kill();
@@ -279,8 +285,9 @@ class NoteSplash extends FlxSprite
 		var phase:Float = oldAnim != null ? (oldAnim.curFrame + @:privateAccess oldAnim._frameTimer * oldAnim.frameRate) / oldAnim.numFrames : 0;
 		var oldConfig = oldAnim != null ? config.animations.get(oldAnim.name) : null;
 		var oldOffsets = oldConfig != null && oldConfig.offsets != null ? oldConfig.offsets : [0.0, 0.0];
-		var extraX = offset.x - 10 - oldOffsets[0];
-		var extraY = offset.y - 10 - oldOffsets[1];
+		var fieldScale = babyArrow != null ? KeyMode.scale(babyArrow.keyCount) : 1;
+		var extraX = offset.x - (10 + oldOffsets[0]) * fieldScale - origin.x * (1 - fieldScale);
+		var extraY = offset.y - (10 + oldOffsets[1]) * fieldScale - origin.y * (1 - fieldScale);
 		var scaleX = scale.x / config.scale;
 		var scaleY = scale.y / config.scale;
 		var data = noteData;
@@ -290,7 +297,8 @@ class NoteSplash extends FlxSprite
 		var conf = config.animations.get(animName);
 		var offsets = conf != null && conf.offsets != null ? conf.offsets : [0.0, 0.0];
 		scale.set(scaleX * config.scale, scaleY * config.scale);
-		offset.set(10 + offsets[0] + extraX, 10 + offsets[1] + extraY);
+		offset.set((10 + offsets[0]) * fieldScale + origin.x * (1 - fieldScale) + extraX,
+			(10 + offsets[1]) * fieldScale + origin.y * (1 - fieldScale) + extraY);
 		if (oldAnim != null && animation.curAnim != null)
 		{
 			var anim = animation.curAnim;
@@ -322,7 +330,7 @@ class NoteSplash extends FlxSprite
 		var tempShader:RGBPalette = null;
 		if (config.allowRGB)
 		{
-			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
+			Note.initializeGlobalRGBShader(noteStyle);
 			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
 			{
 				tempShader = new RGBPalette();
@@ -336,7 +344,7 @@ class NoteSplash extends FlxSprite
 						{
 							if (i > 2) break;
 
-							var arr = NoteSkinData.getColors(null, image)[noteData % Note.colArray.length];
+							var arr = NoteSkinData.getColors(null, image)[noteStyle];
 
 							var rgb = colors[i];
 							if (rgb == null)
@@ -361,7 +369,7 @@ class NoteSplash extends FlxSprite
 							else if (i == 2) tempShader.b = color;
 						}
 					}
-					else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+					else tempShader.copyValues(Note.globalRgbShaders[noteStyle]);
 
 					if (note != null)
 					{
@@ -370,7 +378,7 @@ class NoteSplash extends FlxSprite
 						if (note.noteSplashData.b != -1) tempShader.b = note.noteSplashData.b;
 					}
 				}
-				else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+				else tempShader.copyValues(Note.globalRgbShaders[noteStyle]);
 			}
 		}
 		rgbShader.copyValues(tempShader);
@@ -413,10 +421,10 @@ class NoteSplash extends FlxSprite
 		if (babyArrow != null)
 		{
 			if (copyX)
-				x = babyArrow.x - Note.swagWidth * 0.95;
+				x = babyArrow.x - 112 * KeyMode.scale(babyArrow.keyCount) * 0.95;
 
 			if (copyY)
-				y = babyArrow.y - Note.swagWidth;
+				y = babyArrow.y - 112 * KeyMode.scale(babyArrow.keyCount);
 		}
 		super.update(elapsed);
 	}

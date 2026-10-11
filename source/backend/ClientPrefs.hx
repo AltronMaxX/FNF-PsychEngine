@@ -36,12 +36,24 @@ import states.TitleState;
 		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
 		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
 		[0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447],
-		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038]];
+		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038],
+		[0xFF999999, 0xFFFFFFFF, 0xFF201E31],
+		[0xFFFFFF00, 0xFFFFFFFF, 0xFF993300],
+		[0xFF8B4AFF, 0xFFFFFFFF, 0xFF3B177D],
+		[0xFFFF0000, 0xFFFFFFFF, 0xFF660000],
+		[0xFF0033FF, 0xFFFFFFFF, 0xFF000066],
+		[0xFF999999, 0xFFFFFFFF, 0xFF201E31]];
 	public var arrowRGBPixel:Array<Array<FlxColor>> = [
 		[0xFFE276FF, 0xFFFFF9FF, 0xFF60008D],
 		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
 		[0xFF71E300, 0xFFF6FFE6, 0xFF003100],
-		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000]];
+		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000],
+		[0xFFB6B6B6, 0xFFFFF9FF, 0xFF444444],
+		[0xFFFFD94A, 0xFFF4FFFF, 0xFF663500],
+		[0xFFB055BC, 0xFFF6FFE6, 0xFF4D0060],
+		[0xFFDF3E23, 0xFFFFFAF5, 0xFF440000],
+		[0xFF2F69E5, 0xFFFFF9FF, 0xFF000F5D],
+		[0xFFB6B6B6, 0xFFFFF9FF, 0xFF444444]];
 
 	public var ghostTapping:Bool = true;
 	public var timeBarType:String = 'Time Left';
@@ -162,8 +174,21 @@ class ClientPrefs {
 
 	public static function loadDefaultKeys()
 	{
-		defaultKeys = keyBinds.copy();
-		defaultButtons = gamepadBinds.copy();
+		for (mode in 0...KeyMode.layouts.length)
+		{
+			var keys = mode + 1;
+			if (keys == 4) continue;
+			var buttons:Array<FlxGamepadInputID> = [DPAD_LEFT, DPAD_DOWN, DPAD_UP, DPAD_RIGHT, LEFT_SHOULDER, X, A, Y, B];
+			for (lane in 0...keys)
+			{
+				keyBinds.set(KeyMode.action(keys, lane), [cast KeyMode.defaultKeyboard[mode][lane], NONE]);
+				gamepadBinds.set(KeyMode.action(keys, lane), [buttons[lane], NONE]);
+			}
+		}
+		gamepadBinds.set('ui_prev', [LEFT_SHOULDER]);
+		gamepadBinds.set('ui_next', [RIGHT_SHOULDER]);
+		defaultKeys = [for (key => binds in keyBinds) key => binds.copy()];
+		defaultButtons = [for (key => binds in gamepadBinds) key => binds.copy()];
 	}
 
 	public static function saveSettings() {

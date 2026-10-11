@@ -99,7 +99,7 @@ class Controls
 	public var gamepadBinds:Map<String, Array<FlxGamepadInputID>>;
 	public function justPressed(key:String)
 	{
-		var result:Bool = (FlxG.keys.anyJustPressed(keyboardBinds[key]) == true);
+		var result:Bool = keyboardStatus(key, JUST_PRESSED);
 		if(result) controllerMode = false;
 
 		return result || _myGamepadJustPressed(gamepadBinds[key]) == true;
@@ -107,7 +107,7 @@ class Controls
 
 	public function pressed(key:String)
 	{
-		var result:Bool = (FlxG.keys.anyPressed(keyboardBinds[key]) == true);
+		var result:Bool = keyboardStatus(key, PRESSED);
 		if(result) controllerMode = false;
 
 		return result || _myGamepadPressed(gamepadBinds[key]) == true;
@@ -115,20 +115,28 @@ class Controls
 
 	public function justReleased(key:String)
 	{
-		var result:Bool = (FlxG.keys.anyJustReleased(keyboardBinds[key]) == true);
+		var result:Bool = keyboardStatus(key, JUST_RELEASED);
 		if(result) controllerMode = false;
 
 		return result || _myGamepadJustReleased(gamepadBinds[key]) == true;
 	}
 
 	public var controllerMode:Bool = false;
+	function keyboardStatus(action:String, state:flixel.input.FlxInput.FlxInputState):Bool
+	{
+		var keys = keyboardBinds.get(action);
+		// NONE is a UI placeholder, but Flixel interprets it as "no keys held".
+		if (keys != null) for (key in keys)
+			if ((cast key : Int) >= 0 && FlxG.keys.checkStatus(key, state)) return true;
+		return false;
+	}
 	private function _myGamepadJustPressed(keys:Array<FlxGamepadInputID>):Bool
 	{
 		if(keys != null)
 		{
 			for (key in keys)
 			{
-				if (FlxG.gamepads.anyJustPressed(key) == true)
+				if ((cast key : Int) >= 0 && FlxG.gamepads.anyJustPressed(key) == true)
 				{
 					controllerMode = true;
 					return true;
@@ -143,7 +151,7 @@ class Controls
 		{
 			for (key in keys)
 			{
-				if (FlxG.gamepads.anyPressed(key) == true)
+				if ((cast key : Int) >= 0 && FlxG.gamepads.anyPressed(key) == true)
 				{
 					controllerMode = true;
 					return true;
@@ -158,7 +166,7 @@ class Controls
 		{
 			for (key in keys)
 			{
-				if (FlxG.gamepads.anyJustReleased(key) == true)
+				if ((cast key : Int) >= 0 && FlxG.gamepads.anyJustReleased(key) == true)
 				{
 					controllerMode = true;
 					return true;

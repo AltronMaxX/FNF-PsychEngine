@@ -15,6 +15,7 @@ class NoteSkinData
 	public var defaultColors:Array<Array<FlxColor>>;
 	public var defaultColorsImage:String;
 	public var defaultColorsEndsImage:String;
+	public var pixelColumns:Int = 4;
 
 	static var cache:Map<String, Dynamic> = [];
 
@@ -45,12 +46,22 @@ class NoteSkinData
 	{
 		if (pixel == null) pixel = PlayState.isPixelStage;
 		if (!defaultsOnly && usesCustomColors(pixel))
-			return pixel ? ClientPrefs.data.arrowRGBPixel : ClientPrefs.data.arrowRGB;
+			return completeColors(pixel ? ClientPrefs.data.arrowRGBPixel : ClientPrefs.data.arrowRGB, pixel);
 		if (image == null) image = resolveImage(null, pixel);
 		var colors = load(image, 'notes').defaultColors;
-		if (colors == null) colors = pixel ? ClientPrefs.defaultData.arrowRGBPixel : ClientPrefs.defaultData.arrowRGB;
+		var defaults = pixel ? ClientPrefs.defaultData.arrowRGBPixel : ClientPrefs.defaultData.arrowRGB;
+		if (colors == null) colors = defaults;
 		// Never let the editor mutate skin metadata or the engine defaults.
-		return [for (row in colors) row.copy()];
+		return [for (i in 0...KeyMode.colors.length) (i < colors.length ? colors[i] : defaults[i]).copy()];
+	}
+
+	/** Missing entries use defaults at read time; loading never rewrites a save. */
+	public static function completeColors(colors:Array<Array<FlxColor>>, pixel:Bool):Array<Array<FlxColor>>
+	{
+		var defaults = pixel ? ClientPrefs.defaultData.arrowRGBPixel : ClientPrefs.defaultData.arrowRGB;
+		return [for (i in 0...KeyMode.colors.length)
+			(colors != null && i < colors.length && colors[i] != null && colors[i].length == 3
+				? colors[i] : defaults[i]).copy()];
 	}
 
 	public function defaultImage(pixel:Bool, sustain:Bool = false):String
@@ -77,7 +88,7 @@ class NoteSkinData
 	{
 		if (!Std.isOfType(value, Array)) return null;
 		var rows:Array<Dynamic> = value;
-		if (rows.length != 4) return null;
+		if (rows.length < 4 || rows.length > KeyMode.colors.length) return null;
 		var colors:Array<Array<FlxColor>> = [];
 		for (row in rows)
 		{
@@ -107,7 +118,10 @@ class NoteSkinData
 
 	public static function load(image:String, kind:String):NoteSkinData
 	{
-		var path = Paths.getPath('images/$image.json', TEXT);
+		// Metadata belongs to the selected PNG. Never borrow another folder's
+		// same-named JSON when a legacy mod overrides only the image.
+		var png = Paths.getPath(Language.getFileTranslation('images/$image') + '.png', IMAGE);
+		var path = png.substr(0, png.length - 4) + '.json';
 		if (!cache.exists(path))
 		{
 			var data:Dynamic = null;
@@ -145,6 +159,9 @@ class NoteSkinData
 	function apply(data:Dynamic):Void
 	{
 		if (!isObject(data)) return;
+		// Explicit column count; absent metadata means the legacy four-column sheet.
+		if (Std.isOfType(data.keys, Int) && data.keys >= 4 && data.keys <= KeyMode.colors.length)
+			pixelColumns = data.keys;
 		if (Reflect.hasField(data, 'defaultColors')) defaultColors = parseColors(data.defaultColors);
 		if (Std.isOfType(data.defaultColorsImage, String) && StringTools.trim(data.defaultColorsImage).length > 0)
 			defaultColorsImage = StringTools.trim(data.defaultColorsImage);

@@ -12,7 +12,11 @@ class StrumNote extends NoteSkinSprite
 	public var colorSkinImage(default, null):String;
 	public var usesDefaultColorsImage(default, null):Bool = false;
 	public var resetAnim:Float = 0;
-	private var noteData:Int = 0;
+	public var noteData:Int = 0;
+	public var keyCount:Int;
+	public var styleOverride:Int = -1;
+	public var noteStyle(get, never):Int;
+	function get_noteStyle():Int return styleOverride >= 0 ? styleOverride : KeyMode.style(keyCount, noteData);
 	public var direction:Float = 90;
 	public var downScroll:Bool = false;
 	public var sustainReduce:Bool = true;
@@ -30,16 +34,19 @@ class StrumNote extends NoteSkinSprite
 	}
 
 	public var useRGBShader:Bool = true;
-	public function new(x:Float, y:Float, leData:Int, player:Int) {
+	public function new(x:Float, y:Float, leData:Int, player:Int, keyCount:Int = 0, styleOverride:Int = -1) {
+		this.keyCount = keyCount > 0 ? keyCount : KeyMode.songKeys();
+		this.styleOverride = styleOverride;
+		this.noteData = leData;
 		animation = new PsychAnimationController(this);
 
-		rgbShader = new RGBShaderReference(this, Note.initializeGlobalRGBShader(leData));
+		rgbShader = new RGBShaderReference(this, Note.initializeGlobalRGBShader(noteStyle));
 		rgbShader.enabled = false;
 		if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) useRGBShader = false;
 		
-		var arr:Array<FlxColor> = NoteSkinData.getColors()[leData];
+		var arr:Array<FlxColor> = NoteSkinData.getColors()[noteStyle];
 		
-		if(leData <= arr.length)
+		if(arr != null && arr.length == 3)
 		{
 			@:bypassAccessor
 			{
@@ -97,71 +104,32 @@ class StrumNote extends NoteSkinSprite
 		if(PlayState.isPixelStage)
 		{
 			loadGraphic(Paths.image(image));
-			width = width / 4;
+			var columns = skinData.pixelColumns;
+			width = width / columns;
 			height = height / 5;
 			loadGraphic(Paths.image(image), true, Math.floor(width), Math.floor(height));
 			baseFrameWidth = frameWidth;
 			baseFrameHeight = frameHeight;
 
 			antialiasing = false;
-			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
+			setGraphicSize(Std.int(width * PlayState.daPixelZoom * KeyMode.scale(keyCount)));
 
-			animation.add('green', [6]);
-			animation.add('red', [7]);
-			animation.add('blue', [5]);
-			animation.add('purple', [4]);
-			switch (Math.abs(noteData) % 4)
-			{
-				case 0:
-					animation.add('static', [0]);
-					animation.add('pressed', [4, 8], 12, false);
-					animation.add('confirm', [12, 16], 24, false);
-				case 1:
-					animation.add('static', [1]);
-					animation.add('pressed', [5, 9], 12, false);
-					animation.add('confirm', [13, 17], 24, false);
-				case 2:
-					animation.add('static', [2]);
-					animation.add('pressed', [6, 10], 12, false);
-					animation.add('confirm', [14, 18], 12, false);
-				case 3:
-					animation.add('static', [3]);
-					animation.add('pressed', [7, 11], 12, false);
-					animation.add('confirm', [15, 19], 24, false);
-			}
+			var frame = NoteAnimations.pixelStyle(noteStyle, columns);
+			animation.add('static', [frame]);
+			animation.add('pressed', [frame + columns, frame + columns * 2], 12, false);
+			animation.add('confirm', [frame + columns * 3, frame + columns * 4], 24, false);
 		}
 		else
 		{
 			frames = Paths.getSparrowAtlas(image);
 			baseFrameWidth = frameWidth;
 			baseFrameHeight = frameHeight;
-			animation.addByPrefix('green', 'arrowUP');
-			animation.addByPrefix('blue', 'arrowDOWN');
-			animation.addByPrefix('purple', 'arrowLEFT');
-			animation.addByPrefix('red', 'arrowRIGHT');
-
-			antialiasing = !PlayState.isPixelStage && ClientPrefs.data.antialiasing;
-			setGraphicSize(Std.int(width * (PlayState.isPixelStage ? PlayState.daPixelZoom : 0.7)));
-
-			switch (Math.abs(noteData) % 4)
-			{
-				case 0:
-					animation.addByPrefix('static', 'arrowLEFT');
-					animation.addByPrefix('pressed', 'left press', PlayState.isPixelStage ? 12 : 24, false);
-					animation.addByPrefix('confirm', 'left confirm', 24, false);
-				case 1:
-					animation.addByPrefix('static', 'arrowDOWN');
-					animation.addByPrefix('pressed', 'down press', PlayState.isPixelStage ? 12 : 24, false);
-					animation.addByPrefix('confirm', 'down confirm', 24, false);
-				case 2:
-					animation.addByPrefix('static', 'arrowUP');
-					animation.addByPrefix('pressed', 'up press', PlayState.isPixelStage ? 12 : 24, false);
-					animation.addByPrefix('confirm', 'up confirm', PlayState.isPixelStage ? 12 : 24, false);
-				case 3:
-					animation.addByPrefix('static', 'arrowRIGHT');
-					animation.addByPrefix('pressed', 'right press', PlayState.isPixelStage ? 12 : 24, false);
-					animation.addByPrefix('confirm', 'right confirm', 24, false);
-			}
+			for (i in 0...4) NoteAnimations.add(this, Note.colArray[i], i, 'static');
+			antialiasing = ClientPrefs.data.antialiasing;
+			setGraphicSize(Std.int(width * 0.7 * KeyMode.scale(keyCount)));
+			NoteAnimations.add(this, 'static', noteStyle, 'static');
+			NoteAnimations.add(this, 'pressed', noteStyle, 'press');
+			NoteAnimations.add(this, 'confirm', noteStyle, 'confirm');
 		}
 		updateHitbox();
 
@@ -194,14 +162,12 @@ class StrumNote extends NoteSkinSprite
 
 	public function refreshColors(previous:Array<FlxColor>):Void
 	{
-		rgbShader.refreshColors(previous, NoteSkinData.getColors(null, colorSkinImage)[noteData]);
+		rgbShader.refreshColors(previous, NoteSkinData.getColors(null, colorSkinImage)[noteStyle]);
 	}
 
 	public function playerPosition()
 	{
-		x += Note.swagWidth * noteData;
-		x += 50;
-		x += ((FlxG.width / 2) * player);
+		x = KeyMode.laneX(keyCount, noteData, player, ClientPrefs.data.middleScroll, FlxG.width);
 	}
 
 	override function update(elapsed:Float) {

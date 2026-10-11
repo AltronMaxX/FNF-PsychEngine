@@ -49,12 +49,7 @@ class EditorPlayState extends MusicBeatSubstate
 	var lastRating:FlxSprite;
 	var lastCombo:FlxSprite;
 	var lastScore:Array<FlxSprite> = [];
-	var keysArray:Array<String> = [
-		'note_left',
-		'note_down',
-		'note_up',
-		'note_right'
-	];
+	var keysArray:Array<String>;
 	
 	var songHits:Int = 0;
 	var songMisses:Int = 0;
@@ -95,6 +90,7 @@ class EditorPlayState extends MusicBeatSubstate
 
 	override function create()
 	{
+		keysArray = KeyMode.actions(KeyMode.songKeys());
 		Conductor.safeZoneOffset = (ClientPrefs.data.safeFrames / 60) * 1000 * playbackRate;
 		Conductor.songPosition -= startOffset;
 		startOffset = Conductor.crochet;
@@ -387,7 +383,7 @@ class EditorPlayState extends MusicBeatSubstate
 				}
 			}
 
-			var swagNote:Note = new Note(note.strumTime, note.noteData, oldNote, false, this);
+			var swagNote:Note = new Note(note.strumTime, note.noteData, oldNote, false, false, this);
 			swagNote.mustPress = note.mustPress;
 			swagNote.sustainLength = note.sustainLength;
 			swagNote.gfNote = note.gfNote;
@@ -404,7 +400,7 @@ class EditorPlayState extends MusicBeatSubstate
 				{
 					oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
 
-					var sustainNote:Note = new Note(swagNote.strumTime + (curStepCrochet * susNote), note.noteData, oldNote, true, this);
+					var sustainNote:Note = new Note(swagNote.strumTime + (curStepCrochet * susNote), note.noteData, oldNote, true, false, this);
 					sustainNote.mustPress = swagNote.mustPress;
 					sustainNote.gfNote = swagNote.gfNote;
 					sustainNote.noteType = swagNote.noteType;
@@ -463,7 +459,7 @@ class EditorPlayState extends MusicBeatSubstate
 	{
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
-		for (i in 0...4)
+		for (i in 0...KeyMode.songKeys())
 		{
 			// FlxG.log.add(i);
 			var targetAlpha:Float = 1;
@@ -676,7 +672,7 @@ class EditorPlayState extends MusicBeatSubstate
 		var key:Int = PlayState.getKeyFromEvent(keysArray, eventKey);
 		//trace('Pressed: ' + eventKey);
 
-		if (!controls.controllerMode)
+		if (eventKey != NONE)
 		{
 			#if debug
 			//Prevents crash specifically on debug without needing to try catch shit

@@ -54,6 +54,18 @@ class Note extends NoteSkinSprite
 
 	public var strumTime:Float = 0;
 	public var noteData:Int = 0;
+	public var keyCount:Int;
+	/** Multiplier for custom scripts that specify their own 4K graphic size. */
+	public var multikeyScale(get, never):Float;
+	function get_multikeyScale():Float return KeyMode.scale(keyCount);
+	public var singDirection(get, never):Int;
+	function get_singDirection():Int return KeyMode.singDirection(keyCount, noteData);
+	public var styleOverride:Int = -1;
+	public var noteStyle(get, never):Int;
+	function get_noteStyle():Int return styleOverride >= 0 ? styleOverride : KeyMode.style(keyCount, noteData);
+	public var animColor(get, never):String;
+	function get_animColor():String return KeyMode.colors[noteStyle];
+	var pixelColumns:Int = 4;
 
 	public var mustPress:Bool = false;
 	public var canBeHit:Bool = false;
@@ -176,9 +188,9 @@ class Note extends NoteSkinSprite
 
 	public function defaultRGB()
 	{
-		var arr:Array<FlxColor> = NoteSkinData.getColors(null, colorSkinImage)[noteData];
+		var arr:Array<FlxColor> = NoteSkinData.getColors(null, colorSkinImage)[noteStyle];
 
-		if (arr != null && noteData > -1 && noteData <= arr.length)
+		if (arr != null && arr.length == 3)
 		{
 			rgbShader.r = arr[0];
 			rgbShader.g = arr[1];
@@ -236,7 +248,7 @@ class Note extends NoteSkinSprite
 		return value;
 	}
 
-	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
+	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null, keyCount:Int = 0, styleOverride:Int = -1)
 	{
 		super();
 
@@ -260,17 +272,19 @@ class Note extends NoteSkinSprite
 		if(!inEditor) this.strumTime += ClientPrefs.data.noteOffset;
 
 		this.noteData = noteData;
+		this.keyCount = keyCount > 0 ? keyCount : KeyMode.songKeys();
+		this.styleOverride = styleOverride;
 
 		if(noteData > -1)
 		{
-			rgbShader = new RGBShaderReference(this, initializeGlobalRGBShader(noteData));
+			rgbShader = new RGBShaderReference(this, initializeGlobalRGBShader(noteStyle));
 			if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) rgbShader.enabled = false;
 			texture = '';
 
-			x += swagWidth * (noteData);
-			if(!isSustainNote && noteData < colArray.length) { //Doing this 'if' check to fix the warnings on Senpai songs
+			x += KeyMode.spacing(this.keyCount) * noteData;
+			if(!isSustainNote) { //Doing this 'if' check to fix the warnings on Senpai songs
 				var animToPlay:String = '';
-				animToPlay = colArray[noteData % colArray.length];
+				animToPlay = animColor;
 				animation.play(animToPlay + 'Scroll');
 			}
 		}
@@ -290,7 +304,7 @@ class Note extends NoteSkinSprite
 			offsetX += width / 2;
 			copyAngle = false;
 
-			animation.play(colArray[noteData % colArray.length] + 'holdend');
+			animation.play(animColor + 'holdend');
 
 			updateHitbox();
 
@@ -298,7 +312,7 @@ class Note extends NoteSkinSprite
 
 			if (prevNote.isSustainNote)
 			{
-				prevNote.animation.play(colArray[prevNote.noteData % colArray.length] + 'hold');
+				prevNote.animation.play(prevNote.animColor + 'hold');
 
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.05;
 				if(createdFrom != null && createdFrom.songSpeed != null) prevNote.scale.y *= createdFrom.songSpeed;
@@ -333,7 +347,7 @@ class Note extends NoteSkinSprite
 			var newRGB:RGBPalette = new RGBPalette();
 			var arr:Array<FlxColor> = NoteSkinData.getColors()[noteData];
 			
-			if (arr != null && noteData > -1 && noteData <= arr.length)
+			if (arr != null && arr.length == 3)
 			{
 				newRGB.r = arr[0];
 				newRGB.g = arr[1];
@@ -383,18 +397,21 @@ class Note extends NoteSkinSprite
 		var image = usesDefaultColorsImage ? alternate
 			: (PlayState.isPixelStage && isSustainNote ? NoteSkinData.pixelSustainImage(colorSkinImage) : colorSkinImage);
 
+		pixelColumns = config.pixelColumns;
 		if(PlayState.isPixelStage) {
 			if(isSustainNote) {
-				loadSkinData(NoteSkinData.pixelSustainImage(colorSkinImage), 'sustains');
+				// ENDS is the sustain texture of this skin, not a separate skin.
+				loadSkinData(colorSkinImage, 'sustains');
+				pixelColumns = skinData.pixelColumns;
 				var graphic = Paths.image(image);
-				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 2));
+				loadGraphic(graphic, true, Math.floor(graphic.width / pixelColumns), Math.floor(graphic.height / 2));
 				originalHeight = graphic.height / 2;
 			} else {
 				loadSkinData(colorSkinImage, 'notes');
 				var graphic = Paths.image(image);
-				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 5));
+				loadGraphic(graphic, true, Math.floor(graphic.width / pixelColumns), Math.floor(graphic.height / 5));
 			}
-			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
+			setGraphicSize(Std.int(width * PlayState.daPixelZoom * KeyMode.scale(this.keyCount)));
 			loadPixelNoteAnims();
 			antialiasing = false;
 
@@ -413,9 +430,9 @@ class Note extends NoteSkinSprite
 		{
 			// Both values are unscaled grid-cell widths. Do not apply pixel zoom twice.
 			var headImage = usesDefaultColorsImage ? config.defaultImage(true) : null;
-			var headWidth = Math.floor(Paths.image(headImage != null ? headImage : colorSkinImage).width / 4);
+			var headWidth = Math.floor(Paths.image(headImage != null ? headImage : colorSkinImage).width / config.pixelColumns);
 			offsetX += _lastNoteOffX;
-			_lastNoteOffX = (frameWidth - headWidth) * (PlayState.daPixelZoom / 2);
+			_lastNoteOffX = (frameWidth - headWidth) * (PlayState.daPixelZoom * KeyMode.scale(keyCount) / 2);
 			offsetX -= _lastNoteOffX;
 		}
 
@@ -430,7 +447,7 @@ class Note extends NoteSkinSprite
 
 	public function refreshColors(previous:Array<FlxColor>):Void
 	{
-		rgbShader.refreshColors(previous, NoteSkinData.getColors(null, colorSkinImage)[noteData]);
+		rgbShader.refreshColors(previous, NoteSkinData.getColors(null, colorSkinImage)[noteStyle]);
 	}
 
 	public function refreshSkin()
@@ -480,30 +497,26 @@ class Note extends NoteSkinSprite
 	}
 
 	function loadNoteAnims() {
-		if (colArray[noteData] == null)
-			return;
-
+		if (noteData < 0) return;
 		if (isSustainNote)
 		{
-			attemptToAddAnimationByPrefix('purpleholdend', 'pruple end hold', 24, true); // this fixes some retarded typo from the original note .FLA
-			animation.addByPrefix(colArray[noteData] + 'holdend', colArray[noteData] + ' hold end', 24, true);
-			animation.addByPrefix(colArray[noteData] + 'hold', colArray[noteData] + ' hold piece', 24, true);
+			NoteAnimations.add(this, animColor + 'holdend', noteStyle, 'end', 24, true);
+			NoteAnimations.add(this, animColor + 'hold', noteStyle, 'hold', 24, true);
 		}
-		else animation.addByPrefix(colArray[noteData] + 'Scroll', colArray[noteData] + '0');
-
-		setGraphicSize(Std.int(width * 0.7));
+		else NoteAnimations.add(this, animColor + 'Scroll', noteStyle, 'head');
+		setGraphicSize(Std.int(width * 0.7 * KeyMode.scale(keyCount)));
 		updateHitbox();
 	}
 
 	function loadPixelNoteAnims() {
-		if (colArray[noteData] == null)
-			return;
-
-		if(isSustainNote)
+		if (noteData < 0) return;
+		var frame = NoteAnimations.pixelStyle(noteStyle, pixelColumns);
+		if (isSustainNote)
 		{
-			animation.add(colArray[noteData] + 'holdend', [noteData + 4], 24, true);
-			animation.add(colArray[noteData] + 'hold', [noteData], 24, true);
-		} else animation.add(colArray[noteData] + 'Scroll', [noteData + 4], 24, true);
+			animation.add(animColor + 'holdend', [frame + pixelColumns], 24, true);
+			animation.add(animColor + 'hold', [frame], 24, true);
+		}
+		else animation.add(animColor + 'Scroll', [frame + pixelColumns], 24, true);
 	}
 
 	function attemptToAddAnimationByPrefix(name:String, prefix:String, framerate:Float = 24, doLoop:Bool = true)
@@ -574,16 +587,16 @@ class Note extends NoteSkinSprite
 			{
 				if(PlayState.isPixelStage)
 				{
-					y -= PlayState.daPixelZoom * 9.5;
+					y -= PlayState.daPixelZoom * KeyMode.scale(keyCount) * 9.5;
 				}
-				y -= (frameHeight * scale.y) - (Note.swagWidth / 2);
+				y -= (frameHeight * scale.y) - (myStrum.height / 2);
 			}
 		}
 	}
 
 	public function clipToStrumNote(myStrum:StrumNote)
 	{
-		var center:Float = myStrum.y + offsetY + Note.swagWidth / 2;
+		var center:Float = myStrum.y + offsetY + myStrum.height / 2;
 		if((mustPress || !ignoreNote) && (wasGoodHit || (prevNote.wasGoodHit && !canBeHit)))
 		{
 			var swagRect:FlxRect = clipRect;

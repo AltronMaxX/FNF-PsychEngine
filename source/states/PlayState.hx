@@ -292,12 +292,10 @@ class PlayState extends MusicBeatState
 		PauseSubState.songName = null; //Reset to default
 		playbackRate = ClientPrefs.getGameplaySetting('songspeed');
 
-		keysArray = [
-			'note_left',
-			'note_down',
-			'note_up',
-			'note_right'
-		];
+		SONG.keys = KeyMode.normalize(SONG.keys);
+		totalColumns = KeyMode.count(SONG.keys);
+		keysArray = KeyMode.actions(totalColumns);
+		strumsBlocked = [for (i in 0...totalColumns) false];
 
 		if(FlxG.sound.music != null)
 			FlxG.sound.music.stop();
@@ -1279,7 +1277,9 @@ class PlayState extends MusicBeatState
 
 	private var noteTypes:Array<String> = [];
 	private var eventsPushed:Array<String> = [];
-	private var totalColumns: Int = 4;
+	public var totalColumns(default, null):Int = 4;
+	public var keys(get, never):Int;
+	function get_keys():Int return SONG.keys;
 
 	private function generateSong():Void
 	{
@@ -1357,6 +1357,7 @@ class PlayState extends MusicBeatState
 			for (i in 0...section.sectionNotes.length)
 			{
 				final songNotes: Array<Dynamic> = section.sectionNotes[i];
+				if (songNotes[1] < 0 || songNotes[1] >= totalColumns * 2) continue;
 				var spawnTime: Float = songNotes[0];
 				var noteColumn: Int = Std.int(songNotes[1] % totalColumns);
 				var holdLength: Float = songNotes[2];
@@ -1540,7 +1541,7 @@ class PlayState extends MusicBeatState
 	{
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL : STRUM_X;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
-		for (i in 0...4)
+		for (i in 0...totalColumns)
 		{
 			// FlxG.log.add(i);
 			var targetAlpha:Float = 1;
@@ -1683,7 +1684,7 @@ class PlayState extends MusicBeatState
 		var colorsChanged = changed.contains('noteSkin') || changed.contains(customColorsField) || changed.contains(paletteField);
 		var imagesChanged = changed.contains('noteSkin') || changed.contains(customColorsField);
 		var previousColors:Array<Array<FlxColor>> = session.previousValue(customColorsField) == true
-			? session.previousValue(paletteField)
+			? backend.NoteSkinData.completeColors(session.previousValue(paletteField), isPixelStage)
 			: backend.NoteSkinData.getColors(isPixelStage,
 				backend.NoteSkinData.resolveImage(null, isPixelStage, session.previousValue('noteSkin')), true);
 		if (imagesChanged || colorsChanged || changed.contains('splashAlpha'))
@@ -1694,20 +1695,20 @@ class PlayState extends MusicBeatState
 				{
 					if (note == null) continue;
 					if (imagesChanged) note.refreshSkin();
-					if (colorsChanged) note.refreshColors(previousColors[note.noteData]);
+					if (colorsChanged) note.refreshColors(previousColors[note.noteStyle]);
 					if (changed.contains('splashAlpha') && note.noteSplashData.a == oldAlpha)
 						note.noteSplashData.a = ClientPrefs.data.splashAlpha;
 				}
 			for (strum in strumLineNotes)
 			{
 				if (imagesChanged) strum.refreshSkin(session.previousValue('noteSkin'));
-				if (colorsChanged) strum.refreshColors(previousColors[strum.ID % 4]);
+				if (colorsChanged) strum.refreshColors(previousColors[strum.noteStyle]);
 			}
 		}
 		if (colorsChanged)
 		{
 			var colors = backend.NoteSkinData.getColors();
-			for (i in 0...4)
+			for (i in 0...KeyMode.colors.length)
 			{
 				var shader = Note.initializeGlobalRGBShader(i);
 				if (shader.r == previousColors[i][0]) shader.r = colors[i][0];
@@ -2873,8 +2874,9 @@ class PlayState extends MusicBeatState
 		var eventKey:FlxKey = event.keyCode;
 		var key:Int = getKeyFromEvent(keysArray, eventKey);
 
-		if (!controls.controllerMode)
+		if (eventKey != NONE)
 		{
+			controls.controllerMode = false;
 			#if debug
 			//Prevents crash specifically on debug without needing to try catch shit
 			@:privateAccess if (!FlxG.keys._keyListMap.exists(eventKey)) return;
@@ -2959,7 +2961,7 @@ class PlayState extends MusicBeatState
 	{
 		var eventKey:FlxKey = event.keyCode;
 		var key:Int = getKeyFromEvent(keysArray, eventKey);
-		if(!controls.controllerMode && key > -1) keyReleased(key);
+		if(key > -1) keyReleased(key);
 	}
 
 	private function keyReleased(key:Int)
@@ -2985,7 +2987,7 @@ class PlayState extends MusicBeatState
 			for (i in 0...arr.length)
 			{
 				var note:Array<FlxKey> = Controls.instance.keyboardBinds[arr[i]];
-				for (noteKey in note)
+				if (note != null) for (noteKey in note)
 					if(key == noteKey)
 						return i;
 			}
@@ -3143,7 +3145,7 @@ class PlayState extends MusicBeatState
 			var postfix:String = '';
 			if(note != null) postfix = note.animSuffix;
 
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + 'miss' + postfix;
+			var animToPlay:String = singAnimations[KeyMode.singDirection(totalColumns, direction)] + 'miss' + postfix;
 			char.playAnim(animToPlay, true);
 
 			if(char != gf && lastCombo > 5 && gf != null && gf.hasAnimation('sad'))
@@ -3174,7 +3176,7 @@ class PlayState extends MusicBeatState
 		else if(!note.noAnimation)
 		{
 			var char:Character = dad;
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
+			var animToPlay:String = singAnimations[KeyMode.singDirection(note.keyCount, note.noteData)] + note.animSuffix;
 			if(note.gfNote) char = gf;
 
 			if(char != null)
@@ -3227,7 +3229,7 @@ class PlayState extends MusicBeatState
 		{
 			if(!note.noAnimation)
 			{
-				var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
+				var animToPlay:String = singAnimations[KeyMode.singDirection(note.keyCount, note.noteData)] + note.animSuffix;
 
 				var char:Character = boyfriend;
 				var animCheck:String = 'hey';
