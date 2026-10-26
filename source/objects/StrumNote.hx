@@ -167,7 +167,7 @@ class StrumNote extends NoteSkinSprite
 
 	public function playerPosition()
 	{
-		x = KeyMode.laneX(keyCount, noteData, player, ClientPrefs.data.middleScroll, FlxG.width);
+		x = KeyMode.laneX(keyCount, noteData, player, ClientPrefs.data.middleScroll, FlxG.width, width);
 	}
 
 	override function update(elapsed:Float) {

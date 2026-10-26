@@ -71,16 +71,38 @@ class KeyMode
 	static final spaces:Array<Float> = [112, 112, 112, 112, 98, 84, 77, 70, 63];
 	public static function scale(keys:Int):Float return sizes[normalize(keys) - 1] / 0.7;
 	public static function spacing(keys:Int):Float return spaces[normalize(keys) - 1];
-	/** Preserves the original 4K positions; every other field fits the same space. */
-	public static function laneX(keys:Int, lane:Int, player:Int, middle:Bool, screenWidth:Float = 1280):Float
+	/** Keep the receptor's center equally far from either edge, regardless of size. */
+	public static function strumY(height:Float, downScroll:Bool, screenHeight:Float = 720):Float
+		return (downScroll ? screenHeight - 100 : 100) - height / 2;
+
+	/** Middlescroll divides the available whitespace in the same proportion as 4K.
+	 * Receptor size and lane spacing stay unchanged; width is the stable body hitbox,
+	 * not the larger canvas of a confirm animation. */
+	public static function laneX(keys:Int, lane:Int, player:Int, middle:Bool, screenWidth:Float = 1280, receptorWidth:Float = 0):Float
 	{
+		keys = normalize(keys);
 		var step = spacing(keys);
 		if (middle && player == 0)
 		{
 			var split = Std.int(Math.ceil(keys / 2));
-			if (keys > 4)
-				return lane < split ? 12 + lane * step : screenWidth - 12 - (keys - split) * step + (lane - split) * step;
-			return lane < split ? 82 + lane * step : screenWidth - 309 + (lane - split) * step;
+			if (keys == 4) return lane < split ? 82 + lane * step : screenWidth - 309 + (lane - split) * step;
+			if (receptorWidth <= 0) receptorWidth = spacing(4) * scale(keys);
+			var right = lane >= split;
+			var playerLeft = screenWidth / 2 - 4 - keys * step / 2;
+			var playerRight = playerLeft + (keys - 1) * step + receptorWidth;
+			var groupWidth = (split - 1) * step + receptorWidth;
+			var available = right ? screenWidth - playerRight : playerLeft;
+
+			// Reference the original 1280-wide 4K field: opponent X = 82/194/971/1083,
+			// player X = 412/524/636/748. Measure its outside and inside whitespace.
+			var referenceWidth = receptorWidth / scale(keys);
+			var referenceEdge = right ? 197 - referenceWidth : 82;
+			var referenceGap = right ? 223 - referenceWidth : 218 - referenceWidth;
+			var edgeShare = FlxMath.bound(referenceEdge / (referenceEdge + referenceGap), 0, 1);
+			var edge = Math.max(0, available - groupWidth) * edgeShare;
+			// Both halves reserve ceil(keys / 2) lanes. For odd modes leave the first
+			// right-hand slot empty, as if its duplicate diamond had just been removed.
+			return right ? screenWidth - edge - groupWidth + (lane - split + keys % 2) * step : edge + lane * step;
 		}
 		var center = middle ? screenWidth / 2 - 4 : screenWidth * (player == 0 ? 0.25 : 0.75) - 4;
 		return center - keys * step / 2 + lane * step;
