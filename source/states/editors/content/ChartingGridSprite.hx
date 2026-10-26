@@ -1,6 +1,7 @@
 package states.editors.content;
 
-import flixel.addons.display.FlxGridOverlay;
+import openfl.display.BitmapData;
+import openfl.geom.Rectangle;
 
 // Laggier than a single sprite for the grid, but this is to avoid having to re-create the sprite constantly
 class ChartingGridSprite extends FlxSprite
@@ -22,7 +23,7 @@ class ChartingGridSprite extends FlxSprite
 		scrollFactor.x = 0;
 		active = false;
 
-		scale.set(ChartingState.GRID_SIZE, ChartingState.GRID_SIZE);
+		scale.set(1, ChartingState.GRID_SIZE);
 		loadGrid(color1, color2);
 		updateHitbox();
 		recalcHeight();
@@ -41,7 +42,15 @@ class ChartingGridSprite extends FlxSprite
 
 	public function loadGrid(color1:FlxColor, color2:FlxColor)
 	{
-		loadGraphic(FlxGridOverlay.createGrid(1, 1, columns, 2, true, color1, color2), true, columns, 1);
+		var gridWidth = Std.int(ChartingState.gridColumnX(columns));
+		var bitmap = new BitmapData(gridWidth, 2, true, color1);
+		for(row in 0...2) for(column in 0...columns)
+		{
+			var left = ChartingState.gridColumnX(column);
+			var right = ChartingState.gridColumnX(column + 1);
+			bitmap.fillRect(new Rectangle(left, row, right - left, 1), (column + row) % 2 == 0 ? color1 : color2);
+		}
+		loadGraphic(bitmap, true, gridWidth, 1);
 		animation.add('odd', [0], false);
 		animation.add('even', [1], false);
 		animation.play('even', true);
@@ -100,7 +109,7 @@ class ChartingGridSprite extends FlxSprite
 			if(column == 0)
 				stripe.x = this.x;
 			else 
-				stripe.x = this.x + ChartingState.GRID_SIZE * column - stripe.width/2;
+				stripe.x = this.x + ChartingState.gridColumnX(column) - stripe.width/2;
 			stripe.draw();
 		}
 	}

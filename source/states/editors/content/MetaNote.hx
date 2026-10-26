@@ -169,20 +169,23 @@ class EventMetaNote extends MetaNote
 	override function setSustainLength(v:Float, stepCrochet:Float, zoom:Float = 1) {}
 
 	public var events:Array<Array<String>>;
+	public function setLabelWidth(width:Float):Void
+	{
+		width = Math.max(1, Math.floor(width));
+		if(eventText.fieldWidth == width) return;
+		eventText.fieldWidth = width;
+		updateEventText();
+	}
+
 	public function updateEventText()
 	{
-		var myTime:Float = Math.floor(this.strumTime);
-		if(events.length == 1)
+		eventText.wordWrap = false;
+		eventText.text = ChartingEventText.compact(events, Math.max(0, eventText.fieldWidth - 4), function(value:String)
 		{
-			var event = events[0];
-			eventText.text = 'Event: ${event[0]} ($myTime ms)\nValue 1: ${event[1]}\nValue 2: ${event[2]}';
-		}
-		else if(events.length > 1)
-		{
-			var eventNames:Array<String> = [for (event in events) event[0]];
-			eventText.text = '${events.length} Events ($myTime ms):\n${eventNames.join(', ')}';
-		}
-		else eventText.text = 'ERROR FAILSAFE';
+			eventText.textField.text = value;
+			return eventText.textField.textWidth;
+		});
+		eventText.calcFrame(true);
 	}
 
 	override function destroy()
