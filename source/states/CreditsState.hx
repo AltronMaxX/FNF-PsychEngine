@@ -16,6 +16,8 @@ class CreditsState extends MusicBeatState
 	var descBox:AttachedSprite;
 
 	var offsetThing:Float = -75;
+	var creditsBpm:Float = 145;
+	var linkCooldown:Float = 0;
 
 	override function create()
 	{
@@ -25,6 +27,12 @@ class CreditsState extends MusicBeatState
 		#end
 
 		persistentUpdate = true;
+		loadCreditsBpm();
+		Conductor.bpmChangeMap = [];
+		Conductor.bpm = creditsBpm;
+		Conductor.songPosition = 0;
+		FlxG.sound.playMusic(Paths.music('credits'), 0.7);
+		var creditsModDirectory:String = Mods.currentModDirectory;
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
@@ -95,12 +103,14 @@ class CreditsState extends MusicBeatState
 				}
 
 				var icon:AttachedSprite = new AttachedSprite(str);
+				icon.centerOrigin();
 				if(str.endsWith('-pixel')) icon.antialiasing = false;
 				icon.xAdd = optionText.width + 10;
 				icon.sprTracker = optionText;
 	
 				// using a FlxGroup is too much fuss!
-				iconArray.push(icon);
+				// Keep the credit row index, including gaps for headings and separators.
+				iconArray[i] = icon;
 				add(icon);
 				Mods.currentModDirectory = '';
 
@@ -109,6 +119,7 @@ class CreditsState extends MusicBeatState
 			else optionText.alignment = CENTERED;
 		}
 		
+		Mods.currentModDirectory = creditsModDirectory;
 		descBox = new AttachedSprite();
 		descBox.makeGraphic(1, 1, FlxColor.BLACK);
 		descBox.xAdd = -10;
@@ -134,6 +145,10 @@ class CreditsState extends MusicBeatState
 	var holdTime:Float = 0;
 	override function update(elapsed:Float)
 	{
+		linkCooldown = Math.max(0, linkCooldown - elapsed);
+		if (FlxG.sound.music != null)
+			Conductor.songPosition = FlxG.sound.music.time;
+
 		if (FlxG.sound.music.volume < 0.7)
 		{
 			FlxG.sound.music.volume += 0.5 * elapsed;
@@ -173,8 +188,10 @@ class CreditsState extends MusicBeatState
 				}
 			}
 
-			if(controls.ACCEPT && (creditsStuff[curSelected][3] == null || creditsStuff[curSelected][3].length > 4)) {
-				CoolUtil.browserLoad(creditsStuff[curSelected][3]);
+			var link:String = creditsStuff[curSelected][3];
+			if(controls.ACCEPT && linkCooldown <= 0 && link != null && link.trim().length > 4) {
+				CoolUtil.browserLoad(link);
+				linkCooldown = 1;
 			}
 			if (controls.BACK)
 			{
@@ -201,7 +218,69 @@ class CreditsState extends MusicBeatState
 				}
 			}
 		}
+		var previousStep:Int = curStep;
 		super.update(elapsed);
+		// MusicBeatState skips step zero, including the first beat after a music loop.
+		if (curStep == 0 && previousStep != curStep)
+			beatHit();
+
+		// Keep the original hitbox/offset: AttachedSprite anchors x/y to the text row.
+		// Updating the hitbox after scaling would shift the visual center.
+		var mult:Float = FlxMath.lerp(1, iconArray[curSelected].scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+		iconArray[curSelected].scale.set(mult, mult);
+
+		if (curBeat % 4 == 0)
+		{
+			var multX:Float = FlxMath.lerp(1, bg.scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+			var multY:Float = FlxMath.lerp(1, bg.scale.y, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
+			bg.scale.set(multX, multY);
+			bg.screenCenter();
+			bg.updateHitbox();
+		}
+	}
+
+	override function beatHit()
+	{
+		super.beatHit();
+
+		iconArray[curSelected].scale.set(1.2, 1.2);
+
+		if (curBeat % 4 == 0)
+		{
+			bg.scale.set(1.05, 1.05);
+			bg.screenCenter();
+			bg.updateHitbox();
+		}
+	}
+
+	function loadCreditsBpm():Void
+	{
+		try
+		{
+			var path:String = Paths.getPath('images/credits.json', TEXT);
+			var text:String = #if sys File.getContent(path) #else openfl.utils.Assets.getText(path) #end;
+			var data:Dynamic = haxe.Json.parse(text);
+			var value:Dynamic = Reflect.field(data, 'bpm');
+			if (!(Std.isOfType(value, Int) || Std.isOfType(value, Float)))
+				throw 'bpm must be a number';
+			var bpm:Float = value;
+			if (!Math.isFinite(bpm) || bpm <= 0) throw 'bpm must be finite and positive';
+			creditsBpm = bpm;
+		}
+		catch (e:Dynamic)
+		{
+			trace('Invalid credits BPM config, using 145: $e');
+		}
+	}
+
+	override function destroy():Void
+	{
+		// Also restore the menu track when leaving through a state switch elsewhere.
+		Conductor.bpmChangeMap = [];
+		Conductor.bpm = TitleState.musicBPM;
+		Conductor.songPosition = 0;
+		FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
+		super.destroy();
 	}
 
 	var moveTween:FlxTween = null;
@@ -227,6 +306,7 @@ class CreditsState extends MusicBeatState
 		{
 			item.targetY = num - curSelected;
 			if(!unselectableCheck(num)) {
+				iconArray[num].scale.set(1, 1);
 				item.alpha = 0.6;
 				if (item.targetY == 0) {
 					item.alpha = 1;

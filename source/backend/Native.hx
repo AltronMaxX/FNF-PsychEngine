@@ -13,6 +13,8 @@ import flixel.util.FlxColor;
 	<lib name="gdi32.lib" if="windows"/>
 	<lib name="advapi32.lib" if="windows"/>
 	<lib name="comctl32.lib" if="windows"/>
+	<lib name="shell32.lib" if="windows"/>
+	<lib name="ole32.lib" if="windows"/>
 </target>
 ')
 @:cppFileCode('
@@ -21,6 +23,26 @@ import flixel.util.FlxColor;
 #include <winuser.h>
 #include <wingdi.h>
 #include <commctrl.h>
+#include <shellapi.h>
+#include <objbase.h>
+
+static int openBrowserURLNative(const ::String& url) {
+	HRESULT comResult = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+	if (FAILED(comResult) && comResult != RPC_E_CHANGED_MODE) return static_cast<int>(comResult);
+
+	hx::strbuf wideUrl;
+	SHELLEXECUTEINFOW info = {};
+	info.cbSize = sizeof(info);
+	// Complete the launch directly through the shell; do not create a console.
+	info.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI | SEE_MASK_NO_CONSOLE;
+	info.lpVerb = L"open";
+	info.lpFile = url.wchar_str(&wideUrl);
+	info.nShow = SW_SHOWNORMAL;
+	BOOL launched = ShellExecuteExW(&info);
+	DWORD error = launched ? ERROR_SUCCESS : GetLastError();
+	if (SUCCEEDED(comResult)) CoUninitialize();
+	return static_cast<int>(error);
+}
 
 #define attributeDarkMode 20
 #define attributeDarkModeFallback 19
@@ -97,6 +119,14 @@ static LRESULT CALLBACK windowThemeProc(HWND handle, UINT message, WPARAM wParam
 #end
 class Native
 {
+	#if (cpp && windows)
+	// Returns zero on success, otherwise the Windows error/HRESULT.
+	public static function openBrowserURL(url:String):Int
+	{
+		return untyped __cpp__('openBrowserURLNative({0})', url);
+	}
+	#end
+
 	public static function __init__():Void
 	{
 		registerDPIAware();

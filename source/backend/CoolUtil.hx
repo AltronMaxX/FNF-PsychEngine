@@ -122,9 +122,43 @@ class CoolUtil
 		return dumbArray;
 	}
 
-	inline public static function browserLoad(site:String) {
-		#if linux
-		Sys.command('/usr/bin/xdg-open', [site]);
+	#if (desktop && !(cpp && windows))
+	static var browserLaunchLock:sys.thread.Lock = {
+		var lock = new sys.thread.Lock();
+		lock.release();
+		lock;
+	};
+	#end
+
+	public static function browserLoad(site:String):Void {
+		if (site == null) return;
+		site = site.trim();
+		if (site.length == 0) return;
+		if (!~/^https?:\/\//i.match(site)) site = 'https://' + site;
+		#if (cpp && windows)
+		try {
+			// Open directly through Windows, without cmd.exe or start.
+			var error:Int = Native.openBrowserURL(site);
+			if (error != 0) trace('Could not open URL (Windows error $error)');
+		}
+		catch (e:Dynamic) { trace('Could not open URL: $e'); }
+		#elseif desktop
+		// Keep OS/browser startup off the game thread and ignore duplicate launches
+		// while the previous request is still being handled.
+		if (!browserLaunchLock.wait(0)) return;
+		try
+		{
+			sys.thread.Thread.create(function() {
+				try { lime.system.System.openURL(site); }
+				catch (e:Dynamic) { trace('Could not open URL: $e'); }
+				browserLaunchLock.release();
+			});
+		}
+		catch (e:Dynamic)
+		{
+			browserLaunchLock.release();
+			trace('Could not start URL launcher: $e');
+		}
 		#else
 		FlxG.openURL(site);
 		#end
