@@ -92,7 +92,7 @@ class OptionsSubState extends MusicBeatSubstate
 		add(warning);
 		refreshLabels();
 		super.create();
-		if (transitionIn) openSubState(new CustomFadeTransition(0.5, true));
+		if (transitionIn) openSubState(new CustomFadeTransition(CustomFadeTransition.DEFAULT_DURATION, true));
 		#if DISCORD_ALLOWED
 		DiscordClient.changePresence('Options Menu', null);
 		#end
