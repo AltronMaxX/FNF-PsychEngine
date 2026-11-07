@@ -59,13 +59,16 @@ class PauseSubState extends MusicBeatSubstate
 		menuItems = menuItemsOG;
 
 		final curWeek = WeekData.getCurrentWeek();
-		for (s in curWeek.songs) {
-			final song:SongData = cast s;
-			if (song.songName == PlayState.SONG.song) {
-				final diffs = song.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
-				for (diff in diffs) {
-					if(!PlayState.isStoryMode || Difficulty.list.map(name -> name.toLowerCase()).contains(diff))
-						difficultyChoices.push(diff);
+		if (curWeek != null)
+		{
+			for (s in curWeek.songs) {
+				final song:SongData = cast s;
+				if (song.songName == PlayState.SONG.song) {
+					final diffs = song.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
+					for (diff in diffs) {
+						if(!PlayState.isStoryMode || Difficulty.list.map(name -> name.toLowerCase()).contains(diff))
+							difficultyChoices.push(diff);
+					}
 				}
 			}
 		}

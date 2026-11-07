@@ -2905,7 +2905,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		ignoreProgressCheckBox.checked = chartEditorSave.data.ignoreProgressWarns;
 
 		objY += 50;
-		hitsoundPlayerStepper = new PsychUINumericStepper(objX, objY, 0.2, 0, 0, 1, 1);
+		hitsoundPlayerStepper = new PsychUINumericStepper(objX, objY, 0.1, ClientPrefs.data.hitsoundVolume, 0, 1, 1);
 		hitsoundOpponentStepper = new PsychUINumericStepper(objX + 100, objY, 0.2, 0, 0, 1, 1);
 		metronomeStepper = new PsychUINumericStepper(objX + 200, objY, 0.2, 0, 0, 1, 1);
 
@@ -5492,6 +5492,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		setSongPlaying(false);
 		updateChartData();
+		PlayState.chartingMode = true;
 		StageData.loadDirectory(PlayState.SONG);
 		LoadingState.loadAndSwitchState(new PlayState());
 		ClientPrefs.toggleVolumeKeys(true);

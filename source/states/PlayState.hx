@@ -259,6 +259,9 @@ class PlayState extends MusicBeatState
 	private var luaDebugGroup:FlxTypedGroup<psychlua.DebugLuaText>;
 	#end
 	public var introSoundsSuffix:String = '';
+	public var missSoundsSuffix:String = '';
+	var missSounds:Array<String> = [];
+	var cachedMissSoundsSuffix:String = null;
 
 	// Less laggy controls
 	private var keysArray:Array<String>;
@@ -621,7 +624,6 @@ class PlayState extends MusicBeatState
 
 		//PRECACHING THINGS THAT GET USED FREQUENTLY TO AVOID LAGSPIKES
 		if(ClientPrefs.data.hitsoundVolume > 0) Paths.sound('hitsound');
-		if(!ClientPrefs.data.ghostTapping) for (i in 1...4) Paths.sound('missnote$i');
 		Paths.image('alphabet');
 
 		if (PauseSubState.songName != null)
@@ -633,6 +635,7 @@ class PlayState extends MusicBeatState
 
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
+		cacheMissSounds();
 		
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
@@ -1670,6 +1673,8 @@ class PlayState extends MusicBeatState
 	public function applyOptions(session:OptionsSession)
 	{
 		var changed:Array<String> = session.changedFields();
+		if (changed.contains('muteVocalsOnMiss') && !ClientPrefs.data.muteVocalsOnMiss)
+			vocals.volume = 1;
 		var customColorsField = isPixelStage ? 'customNoteColorsPixel' : 'customNoteColors';
 		var paletteField = isPixelStage ? 'arrowRGBPixel' : 'arrowRGB';
 		var colorsChanged = changed.contains('noteSkin') || changed.contains(customColorsField) || changed.contains(paletteField);
@@ -3040,6 +3045,30 @@ class PlayState extends MusicBeatState
 					keyReleased(i);
 	}
 
+	function cacheMissSounds():Void
+	{
+		missSounds = [];
+		var index:Int = 1;
+		while (true)
+		{
+			var key:String = 'missnote$index$missSoundsSuffix';
+			if (!Paths.fileExists(Language.getFileTranslation('sounds/$key') + '.${Paths.SOUND_EXT}', SOUND)) break;
+			missSounds.push(key);
+			Paths.sound(key);
+			index++;
+		}
+		cachedMissSoundsSuffix = missSoundsSuffix;
+	}
+
+	public function playMissSound(ghost:Bool = false):Void
+	{
+		var volume:Float = ghost ? ClientPrefs.data.ghostMissVolume : ClientPrefs.data.noteMissVolume;
+		if (volume <= 0) return;
+		if (cachedMissSoundsSuffix != missSoundsSuffix) cacheMissSounds();
+		if (missSounds.length > 0)
+			FlxG.sound.play(Paths.sound(FlxG.random.getObject(missSounds)), FlxG.random.float(0.1, 0.2) * volume);
+	}
+
 	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
 		//Dupe note remove
 		notes.forEachAlive(function(note:Note) {
@@ -3052,6 +3081,7 @@ class PlayState extends MusicBeatState
 			if (cover.note == daNote || cover.note == daNote.parent) cover.kill();
 		});
 		noteMissCommon(daNote.noteData, daNote);
+		playMissSound();
 		stagesFunc(function(stage:BaseStage) stage.noteMiss(daNote));
 		var result:Dynamic = callOnLuas('noteMiss', [notes.members.indexOf(daNote), daNote.noteData, daNote.noteType, daNote.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('noteMiss', [daNote]);
@@ -3062,7 +3092,7 @@ class PlayState extends MusicBeatState
 		if(ClientPrefs.data.ghostTapping) return; //fuck it
 
 		noteMissCommon(direction);
-		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
+		playMissSound(true);
 		stagesFunc(function(stage:BaseStage) stage.noteMissPress(direction));
 		callOnScripts('noteMissPress', [direction]);
 	}
@@ -3145,7 +3175,7 @@ class PlayState extends MusicBeatState
 				gf.specialAnim = true;
 			}
 		}
-		vocals.volume = 0;
+		if (ClientPrefs.data.muteVocalsOnMiss) vocals.volume = 0;
 	}
 
 	function opponentNoteHit(note:Note):Void

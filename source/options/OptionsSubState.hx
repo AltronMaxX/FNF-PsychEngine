@@ -17,7 +17,7 @@ class OptionsSubState extends MusicBeatSubstate
 	public static var returnToPlayState:Bool = false;
 	static var lastSelected:Int = 0;
 	var options:Array<String> = [
-		'Note Colors', 'Controls', 'Adjust Delay and Combo', 'Graphics', 'Visuals', 'Gameplay'
+		'Note Colors', 'Controls', 'Adjust Delay and Combo', 'Audio', 'Graphics', 'Visuals', 'Gameplay'
 		#if TRANSLATIONS_ALLOWED , 'Language' #end
 	];
 	var grpOptions:FlxTypedGroup<Alphabet>;
@@ -130,6 +130,7 @@ class OptionsSubState extends MusicBeatSubstate
 		{
 			case 'Note Colors': new NotesColorSubState();
 			case 'Controls': new ControlsSubState();
+			case 'Audio': new AudioSettingsSubState();
 			case 'Graphics': new GraphicsSettingsSubState();
 			case 'Visuals': new VisualsSettingsSubState();
 			case 'Gameplay': new GameplaySettingsSubState();
