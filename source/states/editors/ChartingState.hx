@@ -1902,17 +1902,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				suffix = '-alt';
 			var animName:String = ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'][direction] + suffix;
 			if(!character.hasAnimation(animName)) return;
-			var canPlay:Bool = true;
-			if(sustain)
-			{
-				var holdAnim:String = animName + '-hold';
-				if(character.hasAnimation(holdAnim)) animName = holdAnim;
-				var current:String = getPreviewAnimName(character);
-				canPlay = current != holdAnim && current != holdAnim + '-loop';
-			}
-			if(canPlay) character.playAnim(animName, true);
-			character.holdTimer = 0;
-			if(note.noteType == 'Hey!' && character.hasAnimation('hey'))
+			character.playSingAnimation(animName, sustain);
+			if(note.noteType == 'Hey!' && character.hasAnimation('hey') && (!sustain || !character.fixShaking))
 			{
 				character.playAnim('hey', true);
 				character.specialAnim = true;

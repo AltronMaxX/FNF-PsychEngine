@@ -3188,7 +3188,7 @@ class PlayState extends MusicBeatState
 		if (songName != 'tutorial')
 			camZooming = true;
 
-		if(note.noteType == 'Hey!' && dad.hasAnimation('hey'))
+		if(note.noteType == 'Hey!' && dad.hasAnimation('hey') && (!note.isSustainNote || !dad.fixShaking))
 		{
 			dad.playAnim('hey', true);
 			dad.specialAnim = true;
@@ -3202,16 +3202,7 @@ class PlayState extends MusicBeatState
 
 			if(char != null)
 			{
-				var canPlay:Bool = true;
-				if(note.isSustainNote)
-				{
-					var holdAnim:String = animToPlay + '-hold';
-					if(char.animation.exists(holdAnim)) animToPlay = holdAnim;
-					if(char.getAnimationName() == holdAnim || char.getAnimationName() == holdAnim + '-loop') canPlay = false;
-				}
-
-				if(canPlay) char.playAnim(animToPlay, true);
-				char.holdTimer = 0;
+				char.playSingAnimation(animToPlay, note.isSustainNote);
 			}
 		}
 
@@ -3262,18 +3253,9 @@ class PlayState extends MusicBeatState
 
 				if(char != null)
 				{
-					var canPlay:Bool = true;
-					if(note.isSustainNote)
-					{
-						var holdAnim:String = animToPlay + '-hold';
-						if(char.animation.exists(holdAnim)) animToPlay = holdAnim;
-						if(char.getAnimationName() == holdAnim || char.getAnimationName() == holdAnim + '-loop') canPlay = false;
-					}
-	
-					if(canPlay) char.playAnim(animToPlay, true);
-					char.holdTimer = 0;
+					char.playSingAnimation(animToPlay, note.isSustainNote);
 
-					if(note.noteType == 'Hey!')
+					if(note.noteType == 'Hey!' && (!note.isSustainNote || !char.fixShaking))
 					{
 						if(char.hasAnimation(animCheck))
 						{

@@ -29,6 +29,7 @@ typedef CharacterFile = {
 	var no_antialiasing:Bool;
 	var healthbar_colors:Array<Int>;
 	var vocals_file:String;
+	@:optional var fixShaking:Bool;
 	@:optional var _editor_isPlayer:Null<Bool>;
 }
 
@@ -61,6 +62,7 @@ class Character extends FlxSprite
 	public var animationNotes:Array<Dynamic> = [];
 	public var stunned:Bool = false;
 	public var singDuration:Float = 4; //Multiplier of how long a character holds the sing pose
+	public var fixShaking:Bool = false;
 	public var idleSuffix:String = '';
 	public var danceIdle:Bool = false; //Character use "danceLeft" and "danceRight" instead of "idle"
 	public var skipDance:Bool = false;
@@ -194,6 +196,7 @@ class Character extends FlxSprite
 		// data
 		healthIcon = json.healthicon;
 		singDuration = json.sing_duration;
+		fixShaking = json.fixShaking == true;
 		flipX = (json.flip_x != isPlayer);
 		healthColorArray = (json.healthbar_colors != null && json.healthbar_colors.length > 2) ? json.healthbar_colors : [161, 161, 161];
 		vocalsFile = json.vocals_file != null ? json.vocals_file : '';
@@ -301,11 +304,34 @@ class Character extends FlxSprite
 			holdTimer = 0;
 		}
 
-		var name:String = getAnimationName();
-		if(isAnimationFinished() && hasAnimation('$name-loop'))
-			playAnim('$name-loop');
+		updateAnimationLoops();
 
 		super.update(elapsed);
+	}
+
+	function updateAnimationLoops():Void
+	{
+		if (!isAnimationFinished()) return;
+		var name:String = getAnimationName();
+		if (fixShaking && name.startsWith('sing') && name.indexOf('miss') == -1
+			&& !name.endsWith('-hold') && !name.endsWith('-loop') && hasAnimation('$name-hold'))
+			playAnim('$name-hold');
+		else if (hasAnimation('$name-loop'))
+			playAnim('$name-loop');
+	}
+
+	public function playSingAnimation(name:String, sustain:Bool = false):Void
+	{
+		holdTimer = 0;
+		if (sustain && fixShaking) return;
+		var canPlay:Bool = true;
+		if (sustain)
+		{
+			var holdAnim:String = name + '-hold';
+			if (hasAnimation(holdAnim)) name = holdAnim;
+			canPlay = getAnimationName() != holdAnim && getAnimationName() != holdAnim + '-loop';
+		}
+		if (canPlay) playAnim(name, true);
 	}
 
 	inline public function isAnimationNull():Bool

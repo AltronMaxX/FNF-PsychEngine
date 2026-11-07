@@ -616,6 +616,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 
 	var flipXCheckBox:PsychUICheckBox;
 	var noAntialiasingCheckBox:PsychUICheckBox;
+	var fixShakingCheckBox:PsychUICheckBox;
 
 	var healthColorStepperR:PsychUINumericStepper;
 	var healthColorStepperG:PsychUINumericStepper;
@@ -647,6 +648,10 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		healthIconInputText = new PsychUIInputText(15, imageInputText.y + 35, 75, healthIcon.getCharacter(), 8);
 
 		vocalsInputText = new PsychUIInputText(15, healthIconInputText.y + 35, 75, character.vocalsFile != null ? character.vocalsFile : '', 8);
+
+		fixShakingCheckBox = new PsychUICheckBox(vocalsInputText.x + 100, vocalsInputText.y, 'Fix Shaking', 80);
+		fixShakingCheckBox.checked = character.fixShaking;
+		fixShakingCheckBox.onClick = function() character.fixShaking = fixShakingCheckBox.checked;
 
 		singDurationStepper = new PsychUINumericStepper(15, vocalsInputText.y + 45, 0.1, 4, 0, 999, 1);
 
@@ -697,6 +702,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		tab_group.add(decideIconColor);
 		tab_group.add(healthIconInputText);
 		tab_group.add(vocalsInputText);
+		tab_group.add(fixShakingCheckBox);
 		tab_group.add(singDurationStepper);
 		tab_group.add(scaleStepper);
 		tab_group.add(flipXCheckBox);
@@ -956,6 +962,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		scaleStepper.value = character.jsonScale;
 		flipXCheckBox.checked = character.originalFlipX;
 		noAntialiasingCheckBox.checked = character.noAntialiasing;
+		fixShakingCheckBox.checked = character.fixShaking;
 		positionXStepper.value = character.positionArray[0];
 		positionYStepper.value = character.positionArray[1];
 		positionCameraXStepper.value = character.cameraPosition[0];
@@ -1410,6 +1417,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 			"image": character.imageFile,
 			"scale": character.jsonScale,
 			"sing_duration": character.singDuration,
+			"fixShaking": character.fixShaking,
 			"healthicon": character.healthIcon,
 
 			"position":	character.positionArray,
