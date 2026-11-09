@@ -763,7 +763,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					chartName = chartName.substring(chartName.lastIndexOf('/')+1, chartName.lastIndexOf('.'));
 				}
 				chartName += DateTools.format(Date.now(), '_%Y-%m-%d_%H-%M-%S');
-				var songCopy:SwagSong = Reflect.copy(PlayState.SONG);
+				var songCopy:SwagSong = Song.prepareForSave(PlayState.SONG);
 				Reflect.setField(songCopy, '__original_path', Song.chartPath);
 				var dataToSave:String = haxe.Json.stringify(songCopy);
 				//trace(chartName, dataToSave);
@@ -4560,7 +4560,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 										var diffPostfix:String = (diffName != defaultDiff) ? '-$diffName' : '';
 										var chartData:SwagSong = pack.difficulties.get(diffName);
 										var chartName:String = Paths.formatToSongPath(chartData.song) + diffPostfix + '.json';
-										overwriteCheck(path + chartName, chartName, PsychJsonPrinter.print(chartData, ['sectionNotes', 'events']), nextChart, true);
+										overwriteCheck(path + chartName, chartName, PsychJsonPrinter.print(Song.prepareForSave(chartData), ['sectionNotes', 'events']), nextChart, true);
 										return;
 									}
 	
@@ -4623,7 +4623,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					{
 						loadedChart.format = 'psych_v1_convert';
 						Song.convert(loadedChart);
-						File.saveContent(fileDialog.path, PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']));
+						File.saveContent(fileDialog.path, PsychJsonPrinter.print(Song.prepareForSave(loadedChart), ['sectionNotes', 'events']));
 						showOutput('Updated "$filePath" from format "$fmt" to "psych_v1" successfully!');
 					}
 					else showOutput('Chart is already up-to-date! Format: "$fmt"', true);
@@ -5243,7 +5243,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		updateChartData();
 		if(!gameOverBPMCheckBox.checked) Reflect.deleteField(PlayState.SONG, 'gameOverBPM');
 		if(!gameOverCameraCheckBox.checked) Reflect.deleteField(PlayState.SONG, 'gameOverCameraPosition');
-		var chartData:String = PsychJsonPrinter.print(PlayState.SONG, ['sectionNotes', 'events', 'gameOverCameraPosition']);
+		var chartData:String = PsychJsonPrinter.print(Song.prepareForSave(PlayState.SONG), ['sectionNotes', 'events', 'gameOverCameraPosition']);
 		if(canQuickSave && Song.chartPath != null)
 		{
 			File.saveContent(Song.chartPath, chartData);

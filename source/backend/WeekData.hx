@@ -19,8 +19,8 @@ typedef WeekFile =
 	@:optional var unlockedAfter:UnlockData;
 	var hideStoryMode:Bool;
 	var hideFreeplay:Bool;
-	var redirectToFreeplay:Bool;
-	var freeplayCharacter:String;
+	@:optional var redirectToFreeplay:Bool;
+	@:optional var freeplayCharacter:String;
 	var difficulties:String;
 	@:optional var displayedDifficulties:String;
 }
@@ -99,6 +99,68 @@ class WeekData {
 		return weekFile;
 	}
 
+	public static function prepareForSave(weekFile:WeekFile):WeekFile
+	{
+		var result:WeekFile = Reflect.copy(weekFile);
+		result.songs = weekFile.songs.map(prepareSongForSave);
+		if(result.redirectToFreeplay != true) Reflect.deleteField(result, 'redirectToFreeplay');
+		if(isEmptyText(result.freeplayCharacter) || result.freeplayCharacter == 'bf')
+			Reflect.deleteField(result, 'freeplayCharacter');
+		if(isEmptyText(result.displayedDifficulties)) Reflect.deleteField(result, 'displayedDifficulties');
+		removeEmptyUnlockConditions(result, ['showAfter', 'unlockedAfter']);
+		return result;
+	}
+
+	static function prepareSongForSave(song:Dynamic):Dynamic
+	{
+		if(song == null) return null;
+		if(Std.isOfType(song, Array))
+		{
+			var values:Array<Dynamic> = cast song;
+			var result = values.copy();
+			if(result.length == 4 && isUnlockConditionEmpty(getSongData(song).unlockedAfter)) result.pop();
+			return result;
+		}
+		var result:SongData = getSongData(song);
+		for(field in ['difficulties', 'displayedDifficulties', 'linkedTo'])
+			if(isEmptyText(Reflect.field(result, field))) Reflect.deleteField(result, field);
+		removeEmptyUnlockConditions(result, ['unlockedAfter', 'showAfter', 'showInStoryMode']);
+		// Keep active extensions and unknown fields instead of losing their data.
+		for(field in Reflect.fields(result))
+			if(field != 'songName' && field != 'icon' && field != 'backgroundColor') return result;
+		return [result.songName, result.icon, result.backgroundColor];
+	}
+
+	static function isEmptyText(value:Dynamic):Bool
+		return value == null || (Std.isOfType(value, String) && StringTools.trim(value).length == 0);
+
+	public static function createUnlockCondition(save:String, field:String):UnlockData
+	{
+		save = save != null ? save.trim() : '';
+		field = field != null ? field.trim() : '';
+		return save.length == 0 && field.length == 0 ? null : {save: save, field: field};
+	}
+
+	public static function isUnlockConditionEmpty(condition:UnlockData):Bool
+		return condition == null || createUnlockCondition(condition.save, condition.field) == null;
+
+	static function removeEmptyUnlockConditions(target:Dynamic, fields:Array<String>):Void
+	{
+		for(field in fields)
+			if(isUnlockConditionEmpty(Reflect.field(target, field))) Reflect.deleteField(target, field);
+	}
+
+	// Read either file format without inserting inherited runtime values into editor data.
+	public static function getSongData(song:Dynamic):SongData
+	{
+		if(!Std.isOfType(song, Array)) return Reflect.copy(song);
+		var values:Array<Dynamic> = cast song;
+		var result:SongData = {songName: values[0], icon: values[1], backgroundColor: values[2]};
+		if(values.length == 4 && values[3] != null)
+			result.unlockedAfter = {save: values[3][0], field: values[3][1]};
+		return result;
+	}
+
 	// HELP: Is there any way to convert a WeekFile to WeekData without having to put all variables there manually? I'm kind of a noob in haxe lmao
 	public function new(weekFile:WeekFile, fileName:String) {
 		// here ya go - MiguelItsOut
@@ -112,39 +174,16 @@ class WeekData {
 		this.fileName = fileName;
 		this.songs = [];
 
-		//Format old songs to new format
 		for (s in weekFile.songs) {
-			if (!Reflect.hasField(s, "songName") && !Reflect.hasField(s, "icon") 
-				&& !Reflect.hasField(s, "backgroundColor")) {
-				final diff = this.difficulties != null && this.difficulties.trim().length > 0 ? this.difficulties : Difficulty.vanillaList.join(',');
-				var unlockedAfter:UnlockData = null;
-				if (s.length == 4) {
-					unlockedAfter = {
-						save: s[3][0],
-						field: s[3][1]
-					};
-				}
-				final song:SongData = {
-					difficulties: diff,
-					displayedDifficulties: this.displayedDifficulties,
-					songName: s[0],
-					icon: s[1],
-					backgroundColor: s[2],
-					unlockedAfter: unlockedAfter
-				};
-				this.songs.push(song);		
-			} else {
-				final sd:SongData = cast s;
-				if (sd.difficulties == null)
-				{
-					sd.difficulties = this.difficulties != null && this.difficulties.trim().length > 0 ? this.difficulties : Difficulty.vanillaList.join(',');
-					if (sd.displayedDifficulties == null)
-						sd.displayedDifficulties = this.displayedDifficulties;
-				}
-				// An explicit song difficulty list starts a new display-name scope.
-				// A missing display list then means ordinary names, not the week's aliases.
-				this.songs.push(sd); //Song is already new
+			var sd:SongData = getSongData(s);
+			if (sd.difficulties == null)
+			{
+				sd.difficulties = this.difficulties != null && this.difficulties.trim().length > 0 ? this.difficulties : Difficulty.vanillaList.join(',');
+				if (sd.displayedDifficulties == null)
+					sd.displayedDifficulties = this.displayedDifficulties;
 			}
+			// An explicit song difficulty list starts a new display-name scope.
+			this.songs.push(sd);
 		}
 
 	}

@@ -70,6 +70,13 @@ class Song
 	public var gfVersion:String = 'gf';
 	public var format:String = 'psych_v1';
 
+	public static function prepareForSave(song:SwagSong):SwagSong
+	{
+		var result:SwagSong = Reflect.copy(song);
+		if(KeyMode.count(result.keys) == 4) Reflect.deleteField(result, 'keys');
+		return result;
+	}
+
 	public static function convert(songJson:Dynamic) // Convert old charts to psych_v1 format
 	{
 		var keys = KeyMode.count(songJson.keys);

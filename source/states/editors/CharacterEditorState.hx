@@ -1417,7 +1417,6 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 			"image": character.imageFile,
 			"scale": character.jsonScale,
 			"sing_duration": character.singDuration,
-			"fixShaking": character.fixShaking,
 			"healthicon": character.healthIcon,
 
 			"position":	character.positionArray,
@@ -1430,6 +1429,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 			"_editor_isPlayer": character.isPlayer
 		};
 
+		if(character.fixShaking) Reflect.setField(json, 'fixShaking', true);
 		GameOverConfig.apply(json, character.gameOver);
 		var deathCamera:Array<Float> = Reflect.field(json, 'gameOverCameraPosition');
 		if(deathCamera != null && deathCamera[0] == 0 && deathCamera[1] == 0)
