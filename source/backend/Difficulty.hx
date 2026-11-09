@@ -20,6 +20,53 @@ class Difficulty
 	private static final defaultDifficulty:String = 'Normal'; //The chart that has no postfix and starting difficulty on Freeplay/Story Mode
 
 	public static var list:Array<String> = [];
+	private static var displayNames:Map<String, String> = [];
+
+	// Keep chart identities in list/getString/getFilePath. Aliases are UI only.
+	public static function loadDisplayNames(difficulties:String, displayedDifficulties:String):Void
+	{
+		displayNames.clear();
+		if(displayedDifficulties == null) return;
+		var names = difficulties != null && difficulties.trim().length > 0
+			? difficulties.split(',') : vanillaList.copy();
+		var displayed = displayedDifficulties.split(',');
+		for(i in 0...names.length)
+		{
+			var name = names[i].trim().toLowerCase();
+			if(name.length < 1 || displayNames.exists(name)) continue;
+			// Do not remove empty slots: their positions correspond to difficulties.
+			displayNames.set(name, i < displayed.length ? displayed[i].trim() : '');
+		}
+	}
+
+	public static function loadDisplayFromSong(song:SongData):Void
+	{
+		if(song == null) displayNames.clear();
+		else loadDisplayNames(song.difficulties, song.displayedDifficulties);
+	}
+
+	public static function loadDisplayForSong(songName:String, week:WeekData = null):Void
+	{
+		displayNames.clear();
+		if(week == null) week = WeekData.getCurrentWeek();
+		if(week == null || songName == null) return;
+		for(song in week.songs)
+		{
+			if(Paths.formatToSongPath(song.songName) == Paths.formatToSongPath(songName))
+			{
+				loadDisplayFromSong(song);
+				return;
+			}
+		}
+	}
+
+	public static function getDisplayString(?num:Null<Int> = null, ?canTranslate:Bool = true):String
+	{
+		var name = getString(num, false);
+		var displayed = displayNames.get(name.trim().toLowerCase());
+		if(displayed == null || displayed.length == 0) return getString(num, canTranslate);
+		return canTranslate ? Language.getPhrase('difficulty_$displayed', displayed) : displayed;
+	}
 
 	inline public static function getFilePath(num:Null<Int> = null)
 	{
@@ -36,6 +83,7 @@ class Difficulty
 	inline public static function loadFromWeek(week:WeekData = null)
 	{
 		if(week == null) week = WeekData.getCurrentWeek();
+		loadDisplayNames(week.difficulties, week.displayedDifficulties);
 		var allowed = week.difficulties != null && week.difficulties.trim().length > 0
 			? week.difficulties.split(',').map(diff -> diff.trim()) : vanillaList.copy();
 		list = [];
@@ -54,6 +102,7 @@ class Difficulty
 	}
 
 	inline public static function loadFromAllWeeks() {
+		displayNames.clear();
 		var diffs:Array<String> = [];
 		for (w in WeekData.weeksList) {
 			final week = WeekData.weeksLoaded.get(w);
@@ -113,11 +162,13 @@ class Difficulty
 
 	inline public static function resetList()
 	{
+		displayNames.clear();
 		list = vanillaList.copy();
 	}
 
 	inline public static function copyFrom(diffs:Array<String>)
 	{
+		displayNames.clear();
 		list = diffs.copy();
 	}
 

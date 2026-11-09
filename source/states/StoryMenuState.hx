@@ -432,7 +432,8 @@ class StoryMenuState extends MusicBeatState
 		WeekData.setDirectoryFromWeek(loadedWeeks[curWeek]);
 
 		var diff:String = Difficulty.getString(curDifficulty, false);
-		var newImage:FlxGraphic = Paths.image('menudifficulties/' + Paths.formatToSongPath(diff));
+		var displayedDiff:String = Difficulty.getDisplayString(curDifficulty, false);
+		var newImage:FlxGraphic = Paths.image('menudifficulties/' + Paths.formatToSongPath(displayedDiff));
 		//trace(Mods.currentModDirectory + ', menudifficulties/' + Paths.formatToSongPath(diff));
 
 		if(sprDifficulty.graphic != newImage)
@@ -601,3 +602,4 @@ class StoryMenuState extends MusicBeatState
 		#end
 	}
 }
+

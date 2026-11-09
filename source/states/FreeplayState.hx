@@ -46,6 +46,7 @@ class FreeplayState extends MusicBeatState
 	private static var requestedSongFolder:String = null;
 	private static var requestedSongDiff:String = null;
 	private static var requestedFreeplayChar:String = null;
+	private static var requestedSongWeek:String = null;
 	var lerpSelected:Float = 0;
 	var curDifficulty:Int = -1;
 	@:allow(substates.PauseSubState)
@@ -295,16 +296,17 @@ class FreeplayState extends MusicBeatState
 
 		if(requestedSongName != null)
 		{
-			curSelectedChar = Std.int(Math.max(0, freeplayCharacters.indexOf('bf')));
+			var requestedCharacter:Int = Std.int(Math.max(0, freeplayCharacters.indexOf('bf')));
 			if (freeplayCharacters.contains(requestedFreeplayChar))
-				curSelectedChar = freeplayCharacters.indexOf(requestedFreeplayChar);
-			changeCharacter();
+				requestedCharacter = freeplayCharacters.indexOf(requestedFreeplayChar);
+			changeCharacter(requestedCharacter - curSelectedChar);
 			var songArr = _songs[requestedSongDiff];
 			if(songArr != null)
 			for (i in 0...songArr.length)
 			{
-				if(songArr[i].songName == requestedSongName && (requestedSongFolder == null 
-					|| requestedSongFolder.length < 1 || songArr[i].folder == requestedSongFolder))
+				if(Paths.formatToSongPath(songArr[i].songName) == Paths.formatToSongPath(requestedSongName)
+					&& (requestedSongFolder == null || songArr[i].folder == requestedSongFolder)
+					&& (requestedSongWeek == null || WeekData.weeksList[songArr[i].week] == requestedSongWeek))
 				{
 					curSelected = i;
 					curDifficulty = Difficulty.list.map(diff -> diff.toLowerCase()).indexOf(requestedSongDiff);
@@ -316,6 +318,7 @@ class FreeplayState extends MusicBeatState
 			requestedSongFolder = null;
 			requestedSongDiff = null;
 			requestedFreeplayChar = null;
+			requestedSongWeek = null;
 		}
 		
 		changeSelection();
@@ -330,20 +333,22 @@ class FreeplayState extends MusicBeatState
 	}
 
 	public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int, 
-		unlockedAfter:Null<UnlockData>, showAfter:Null<UnlockData>, linkedTo:Array<String>, diffs:Array<String>)
+		unlockedAfter:Null<UnlockData>, showAfter:Null<UnlockData>, linkedTo:Array<String>, diffs:Array<String>, ?data:SongData)
 	{
 		final metadata = new SongMetadata(songName, weekNum, songCharacter, color, unlockedAfter, showAfter, linkedTo);
+		metadata.data = data;
 		for (diff in diffs) {
 			_songs[diff].push(metadata);
 		}
 	}
 
-	public static function queueSongSelection(songName:String, diff:String, char:String, ?folder:String = '')
+	public static function queueSongSelection(songName:String, diff:String, char:String, ?folder:String = null, ?week:String = null)
 	{
 		requestedSongName = songName;
 		requestedSongFolder = folder;
 		requestedSongDiff = diff.trim().toLowerCase();
 		requestedFreeplayChar = char;
+		requestedSongWeek = week;
 	}
 
 	function weekIsLocked(name:String):Bool
@@ -647,7 +652,7 @@ class FreeplayState extends MusicBeatState
 			DiscordClient.loadModRPC();
 			#end
 		}
-		else if(controls.RESET && !player.playingMusic)
+		else if(controls.RESET && !player.playingMusic && (intendedScore != 0 || intendedRating != 0))
 		{
 			persistentUpdate = false;
 			openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
@@ -752,7 +757,8 @@ class FreeplayState extends MusicBeatState
 		#end
 
 		lastDifficultyName = Difficulty.getString(curDifficulty, false);
-		var displayDiff:String = Difficulty.getString(curDifficulty);
+		Difficulty.loadDisplayFromSong(songs[curSelected].data);
+		var displayDiff:String = Difficulty.getDisplayString(curDifficulty);
 		diffText.text = displayDiff.toUpperCase();
 
 		diffSel.changeSelection(curDifficulty);
@@ -902,6 +908,7 @@ class FreeplayState extends MusicBeatState
 		
 		Mods.currentModDirectory = songs[curSelected].folder;
 		PlayState.storyWeek = songs[curSelected].week;
+		Difficulty.loadDisplayFromSong(songs[curSelected].data);
 		//Difficulty.loadFromWeek();
 
 		// Idk what this code is doing
@@ -1016,7 +1023,7 @@ class FreeplayState extends MusicBeatState
 				link[i] = link[i].trim();
 			}
 
-			addSong(sd.songName, index, sd.icon, FlxColor.fromRGB(colors[0], colors[1], colors[2]), sd.unlockedAfter, sd.showAfter, link, preparedDiffs);	
+			addSong(sd.songName, index, sd.icon, FlxColor.fromRGB(colors[0], colors[1], colors[2]), sd.unlockedAfter, sd.showAfter, link, preparedDiffs, sd);
 		}
 	}
 
@@ -1112,6 +1119,7 @@ class FreeplayState extends MusicBeatState
 
 class SongMetadata
 {
+	public var data:SongData = null;
 	public var songName:String = "";
 	public var week:Int = 0;
 	public var songCharacter:String = "";
@@ -1232,3 +1240,4 @@ class BubbleSelector extends FlxTypedGroup<FlxObject> {
 		return bubbles[bubbleCount - 1].x - bubbles[0].x + bubbles[0].width;
 	}
 }
+

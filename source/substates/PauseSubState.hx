@@ -19,6 +19,7 @@ class PauseSubState extends MusicBeatSubstate
 	var menuItems:Array<String> = [];
 	var menuItemsOG:Array<String> = ['Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'];
 	var difficultyChoices = [];
+	var difficultyChoiceIDs:Array<Int> = [];
 	var curSelected:Int = 0;
 
 	var pauseMusic:FlxSound;
@@ -63,11 +64,15 @@ class PauseSubState extends MusicBeatSubstate
 		{
 			for (s in curWeek.songs) {
 				final song:SongData = cast s;
-				if (song.songName == PlayState.SONG.song) {
+				if (Paths.formatToSongPath(song.songName) == Paths.formatToSongPath(Song.loadedSongName != null ? Song.loadedSongName : PlayState.SONG.song)) {
 					final diffs = song.difficulties.split(',').map(function(str:String):String {return str.trim().toLowerCase();});
 					for (diff in diffs) {
-						if(!PlayState.isStoryMode || Difficulty.list.map(name -> name.toLowerCase()).contains(diff))
+						var diffID = Difficulty.list.map(name -> name.toLowerCase()).indexOf(diff);
+						if(diffID >= 0 && !difficultyChoiceIDs.contains(diffID))
+						{
+							difficultyChoiceIDs.push(diffID);
 							difficultyChoices.push(diff);
+						}
 					}
 				}
 			}
@@ -114,7 +119,7 @@ class PauseSubState extends MusicBeatSubstate
 
 		objY += 32;
 
-		var levelDifficulty:FlxText = new FlxText(20, objY, 0, Difficulty.getString().toUpperCase(), 32);
+		var levelDifficulty:FlxText = new FlxText(20, objY, 0, Difficulty.getDisplayString().toUpperCase(), 32);
 		levelDifficulty.scrollFactor.set();
 		levelDifficulty.setFormat(Paths.font('vcr.ttf'), 32);
 		levelDifficulty.updateHitbox();
@@ -355,7 +360,7 @@ class PauseSubState extends MusicBeatSubstate
 			if (menuItems == difficultyChoices)
 			{
 				var songLowercase:String = Paths.formatToSongPath(PlayState.SONG.song);
-				var selectedDifficulty:Int = Difficulty.list.map(name -> name.toLowerCase()).indexOf(difficultyChoices[curSelected]);
+				var selectedDifficulty:Int = curSelected < difficultyChoiceIDs.length ? difficultyChoiceIDs[curSelected] : -1;
 				var poop:String = Highscore.formatSong(songLowercase, selectedDifficulty);
 				try
 				{
@@ -527,12 +532,14 @@ class PauseSubState extends MusicBeatSubstate
 		}
 
 		for (num => str in menuItems) {
-			var item = new Alphabet(90, 320, Language.getPhrase('pause_$str', str), true);
+			var label = menuItems == difficultyChoices && num < difficultyChoiceIDs.length
+				? Difficulty.getDisplayString(difficultyChoiceIDs[num]) : Language.getPhrase('pause_$str', str);
+			var item = new Alphabet(90, 320, label, true);
 			item.isMenuItem = true;
 			item.targetY = num;
 			grpMenuShit.add(item);
 
-			if(str == 'Skip Time')
+			if(menuItems != difficultyChoices && str == 'Skip Time')
 			{
 				skipTimeText = new FlxText(0, 0, 0, '', 64);
 				skipTimeText.setFormat(Paths.font("vcr.ttf"), 64, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -562,3 +569,4 @@ class PauseSubState extends MusicBeatSubstate
 	function updateSkipTimeText()
 		skipTimeText.text = FlxStringUtil.formatTime(Math.max(0, Math.floor(curTime / 1000)), false) + ' / ' + FlxStringUtil.formatTime(Math.max(0, Math.floor(FlxG.sound.music.length / 1000)), false);
 }
+

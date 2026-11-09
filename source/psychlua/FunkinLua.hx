@@ -1304,8 +1304,10 @@ class FunkinLua {
 				var oldSnd = variables.get(tag);
 				if(oldSnd != null)
 				{
+					// Tagged sounds use autoDestroy: stop() resets them for the SFX pool.
+					// A second destroy() nulls _transform while the sound is still grouped,
+					// crashing group removal on the next state switch if another slot is reused.
 					oldSnd.stop();
-					oldSnd.destroy();
 				}
 
 				variables.set(tag, FlxG.sound.play(Paths.sound(sound), volume, loop, null, true, function()

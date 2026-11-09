@@ -22,11 +22,14 @@ typedef WeekFile =
 	var redirectToFreeplay:Bool;
 	var freeplayCharacter:String;
 	var difficulties:String;
+	@:optional var displayedDifficulties:String;
 }
 
 typedef SongData = {
 	@:optional
 	var difficulties:String;
+	@:optional
+	var displayedDifficulties:String;
 	var songName:String;
 	var icon:String;
 	var backgroundColor:Array<Int>;
@@ -67,6 +70,7 @@ class WeekData {
 	public var redirectToFreeplay:Bool = false;
 	public var freeplayCharacter:String = 'bf';
 	public var difficulties:String;
+	public var displayedDifficulties:String = null;
 
 	public var fileName:String;
 
@@ -122,6 +126,7 @@ class WeekData {
 				}
 				final song:SongData = {
 					difficulties: diff,
+					displayedDifficulties: this.displayedDifficulties,
 					songName: s[0],
 					icon: s[1],
 					backgroundColor: s[2],
@@ -131,7 +136,13 @@ class WeekData {
 			} else {
 				final sd:SongData = cast s;
 				if (sd.difficulties == null)
+				{
 					sd.difficulties = this.difficulties != null && this.difficulties.trim().length > 0 ? this.difficulties : Difficulty.vanillaList.join(',');
+					if (sd.displayedDifficulties == null)
+						sd.displayedDifficulties = this.displayedDifficulties;
+				}
+				// An explicit song difficulty list starts a new display-name scope.
+				// A missing display list then means ordinary names, not the week's aliases.
 				this.songs.push(sd); //Song is already new
 			}
 		}
@@ -277,3 +288,4 @@ class WeekData {
 		}
 	}
 }
+

@@ -326,10 +326,19 @@ class PlayState extends MusicBeatState
 
 		Conductor.mapBPMChanges(SONG);
 		Conductor.bpm = SONG.bpm;
+		
+		Difficulty.loadDisplayForSong(Song.loadedSongName != null ? Song.loadedSongName : SONG.song);
+		if(!isStoryMode)
+		{
+			var week = WeekData.getCurrentWeek();
+			if(week != null)
+				FreeplayState.queueSongSelection(Song.loadedSongName != null ? Song.loadedSongName : SONG.song,
+					Difficulty.getString(storyDifficulty, false), week.freeplayCharacter, week.folder, week.fileName);
+		}
 
 		#if DISCORD_ALLOWED
 		// String that contains the mode defined here so it isn't necessary to call changePresence for each mode
-		storyDifficultyText = Difficulty.getString();
+		storyDifficultyText = Difficulty.getDisplayString();
 
 		if (isStoryMode)
 			detailsText = "Story Mode: " + WeekData.getCurrentWeek().weekName;
@@ -3846,3 +3855,4 @@ class PlayState extends MusicBeatState
 		return false;
 	}
 }
+

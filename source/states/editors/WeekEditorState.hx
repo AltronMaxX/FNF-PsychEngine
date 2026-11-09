@@ -188,6 +188,7 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 
 	var weekBeforeInputText:PsychUIInputText;
 	var difficultiesInputText:PsychUIInputText;
+	var displayedDifficultiesInputText:PsychUIInputText;
 	var lockedCheckbox:PsychUICheckBox;
 	var hiddenUntilUnlockCheckbox:PsychUICheckBox;
 
@@ -213,8 +214,9 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 
 		weekBeforeInputText = new PsychUIInputText(10, hiddenUntilUnlockCheckbox.y + 55, 100, '', 8);
 		difficultiesInputText = new PsychUIInputText(10, weekBeforeInputText.y + 60, 200, '', 8);
+		displayedDifficultiesInputText = new PsychUIInputText(10, difficultiesInputText.y + 80, 200, '', 8);
 
-		var redirectToFreeplayCheckbox:PsychUICheckBox = new PsychUICheckBox(10, difficultiesInputText.y + 50, "Redirect to Freeplay", 100);
+		var redirectToFreeplayCheckbox:PsychUICheckBox = new PsychUICheckBox(10, displayedDifficultiesInputText.y + 60, "Redirect to Freeplay", 100);
 		redirectToFreeplayCheckbox.checked = weekFile.redirectToFreeplay == true;
 		redirectToFreeplayCheckbox.onClick = function()
 		{
@@ -227,8 +229,11 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 		tab_group.add(new FlxText(weekBeforeInputText.x, weekBeforeInputText.y - 28, 0, 'Week File name of the Week you have\nto finish for Unlocking:'));
 		tab_group.add(new FlxText(difficultiesInputText.x, difficultiesInputText.y - 20, 0, 'Difficulties:'));
 		tab_group.add(new FlxText(difficultiesInputText.x, difficultiesInputText.y + 20, 0, 'Default difficulties are "Easy, Normal, Hard"\nwithout quotes.'));
+		tab_group.add(new FlxText(displayedDifficultiesInputText.x, displayedDifficultiesInputText.y - 20, 0, 'Displayed Difficulties:'));
+		tab_group.add(new FlxText(displayedDifficultiesInputText.x, displayedDifficultiesInputText.y + 20, 230, 'Empty slots keep original names.\nExample: , Test,'));
 		tab_group.add(weekBeforeInputText);
 		tab_group.add(difficultiesInputText);
+		tab_group.add(displayedDifficultiesInputText);
 		tab_group.add(hiddenUntilUnlockCheckbox);
 		tab_group.add(lockedCheckbox);
 		tab_group.add(redirectToFreeplayCheckbox);
@@ -307,6 +312,7 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 
 		difficultiesInputText.text = '';
 		if(weekFile.difficulties != null) difficultiesInputText.text = weekFile.difficulties;
+		displayedDifficultiesInputText.text = weekFile.displayedDifficulties ?? '';
 
 		lockedCheckbox.checked = !weekFile.startUnlocked;
 		
@@ -471,6 +477,9 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 				unsavedProgress = true;
 			} else if(sender == difficultiesInputText) {
 				weekFile.difficulties = difficultiesInputText.text.trim();
+				unsavedProgress = true;
+			} else if(sender == displayedDifficultiesInputText) {
+				weekFile.displayedDifficulties = displayedDifficultiesInputText.text.trim();
 				unsavedProgress = true;
 			} else if(sender == showAfterSaveInputText || sender == showAfterFieldInputText
 				|| sender == unlockedAfterSaveInputText || sender == unlockedAfterFieldInputText) {
@@ -713,7 +722,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 	
 	var UI_box:PsychUIBox;
 	function addEditorBox() {
-		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 360, ['Freeplay', 'Story Mode']);
+		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 400, ['Freeplay', 'Story Mode']);
 		UI_box.x -= UI_box.width + 100;
 		UI_box.y -= UI_box.height + 60;
 		UI_box.scrollFactor.set();
@@ -784,6 +793,11 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 				else {
 					weekFile.songs[curSelected].difficulties = diffInputText.text;
 				}
+			} else if (sender == displayedDiffInputText) {
+				var song:SongData = weekFile.songs[curSelected];
+				var displayed:String = displayedDiffInputText.text.trim();
+				song.displayedDifficulties = displayed.length > 0 ? displayed : null;
+				WeekEditorState.unsavedProgress = true;
 			} else if (sender == lockSaveText) {
 				if (!Reflect.hasField(weekFile.songs[curSelected], "songName") && !Reflect.hasField(weekFile.songs[curSelected], "icon") 
 					&& !Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
@@ -925,6 +939,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 	var bgColorStepperB:PsychUINumericStepper;
 	var iconInputText:PsychUIInputText;
 	var diffInputText:PsychUIInputText;
+	var displayedDiffInputText:PsychUIInputText;
 	var lockSaveText:PsychUIInputText;
 	var lockFieldText:PsychUIInputText;
 	var showSaveText:PsychUIInputText;
@@ -952,8 +967,9 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		var tab_group = UI_box.getTab('Freeplay').menu;
 
 		diffInputText = new PsychUIInputText(10, 40, 200, '', 8);
+		displayedDiffInputText = new PsychUIInputText(10, diffInputText.y + 40, 200, '', 8);
 
-		freeplayCharacter = new PsychUIInputText(10, diffInputText.y + 40, 200, '', 8);
+		freeplayCharacter = new PsychUIInputText(10, displayedDiffInputText.y + 40, 200, '', 8);
 
 		bgColorStepperR = new PsychUINumericStepper(10, freeplayCharacter.y + 40, 20, 255, 0, 255, 0);
 		bgColorStepperG = new PsychUINumericStepper(80, freeplayCharacter.y + 40, 20, 255, 0, 255, 0);
@@ -1009,6 +1025,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		tab_group.add(new FlxText(10, bgColorStepperR.y - 18, 0, 'Selected background Color R/G/B:'));
 		tab_group.add(new FlxText(10, iconInputText.y - 18, 0, 'Selected icon:'));
 		tab_group.add(new FlxText(10, diffInputText.y - 18, 0, 'Difficulties:'));
+		tab_group.add(new FlxText(10, displayedDiffInputText.y - 18, 0, 'Displayed Difficulties:'));
 		tab_group.add(new FlxText(10, freeplayCharacter.y - 18, 0, 'Freeplay Character:'));
 		tab_group.add(new FlxText(lockSaveText.x, lockSaveText.y - 18, 0, 'Lock Check Save File:'));
 		tab_group.add(new FlxText(lockFieldText.x, lockFieldText.y - 18, 0, 'Lock Check Field:'));
@@ -1016,6 +1033,7 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		tab_group.add(new FlxText(showFieldText.x, showSaveText.y - 18, 0, 'Show Lock Field:'));
 		tab_group.add(new FlxText(linkedToText.x, linkedToText.y - 18, 0, 'Linked To Song:'));
 		tab_group.add(diffInputText);
+		tab_group.add(displayedDiffInputText);
 		tab_group.add(freeplayCharacter);
 		tab_group.add(bgColorStepperR);
 		tab_group.add(bgColorStepperG);
@@ -1086,7 +1104,8 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 
 		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
 			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
-			diffInputText.text = weekFile.songs[curSelected].difficulties;
+			diffInputText.text = weekFile.songs[curSelected].difficulties ?? '';
+		displayedDiffInputText.text = weekFile.songs[curSelected].displayedDifficulties ?? '';
 
 		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
 			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))
@@ -1143,3 +1162,4 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		super.update(elapsed);
 	}
 }
+
