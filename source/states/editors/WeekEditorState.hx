@@ -713,14 +713,12 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 	
 	var UI_box:PsychUIBox;
 	function addEditorBox() {
-		var tabs = [
-			{name: 'Freeplay', label: 'Freeplay'},
-		];
-		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 360, ['Freeplay']);
+		UI_box = new PsychUIBox(FlxG.width, FlxG.height, 250, 360, ['Freeplay', 'Story Mode']);
 		UI_box.x -= UI_box.width + 100;
 		UI_box.y -= UI_box.height + 60;
 		UI_box.scrollFactor.set();
 		addFreeplayUI();
+		addStoryModeUI();
 		add(UI_box);
 
 		var blackBlack:FlxSprite = new FlxSprite(0, 670).makeGraphic(FlxG.width, 50, FlxColor.BLACK);
@@ -890,6 +888,12 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 						weekFile.songs[curSelected].showAfter = showAfter;
 					}
 				}
+			} else if (sender == storySaveText || sender == storyFieldText) {
+				var song:SongData = weekFile.songs[curSelected];
+				var save:String = storySaveText.text.trim();
+				var field:String = storyFieldText.text.trim();
+				song.showInStoryMode = save.length == 0 && field.length == 0 ? null : {save: save, field: field};
+				WeekEditorState.unsavedProgress = true;
 			} else if (sender == freeplayCharacter) {
 				weekFile.freeplayCharacter = freeplayCharacter.text;
 			} else if (sender == linkedToText) {
@@ -927,6 +931,23 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 	var showFieldText:PsychUIInputText;
 	var freeplayCharacter:PsychUIInputText;
 	var linkedToText:PsychUIInputText;
+	var storySaveText:PsychUIInputText;
+	var storyFieldText:PsychUIInputText;
+
+	function addStoryModeUI() {
+		var tab_group = UI_box.getTab('Story Mode').menu;
+		storySaveText = new PsychUIInputText(10, 100, 220, '', 8);
+		storyFieldText = new PsychUIInputText(10, 145, 220, '', 8);
+
+		tab_group.add(new FlxText(10, 12, 230, 'Selected song: showInStoryMode\nShow its name in the Story Mode track list after a save condition.'));
+		tab_group.add(new FlxText(10, 82, 230, 'Save name:'));
+		tab_group.add(new FlxText(10, 127, 230, 'Save field:'));
+		tab_group.add(storySaveText);
+		tab_group.add(storyFieldText);
+		tab_group.add(new FlxText(10, 180, 230,
+			'Save field must be true.\nClear both inputs to always show the name.\nThe song still plays while hidden.'));
+	}
+
 	function addFreeplayUI() {
 		var tab_group = UI_box.getTab('Freeplay').menu;
 
@@ -1059,6 +1080,9 @@ class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHand
 		bgColorStepperG.value = Math.round(colors[1]);
 		bgColorStepperB.value = Math.round(colors[2]);
 		updateBG();
+		var storyCondition:UnlockData = weekFile.songs[curSelected].showInStoryMode;
+		storySaveText.text = storyCondition != null ? storyCondition.save ?? '' : '';
+		storyFieldText.text = storyCondition != null ? storyCondition.field ?? '' : '';
 
 		if (Reflect.hasField(weekFile.songs[curSelected], "songName") && Reflect.hasField(weekFile.songs[curSelected], "icon") 
 			&& Reflect.hasField(weekFile.songs[curSelected], "backgroundColor"))

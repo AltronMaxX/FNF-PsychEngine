@@ -34,6 +34,9 @@ typedef SongData = {
 	var unlockedAfter:UnlockData;
 	@:optional
 	var showAfter:UnlockData;
+	// Controls the track list only; the song remains in the Story Mode playlist.
+	@:optional
+	var showInStoryMode:UnlockData;
 	@:optional
 	var linkedTo:String;
 }

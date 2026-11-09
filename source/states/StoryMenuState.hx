@@ -78,7 +78,7 @@ class StoryMenuState extends MusicBeatState
 		for(name in WeekData.weeksList)
 		{
 			var weekFile:WeekData = WeekData.weeksLoaded.get(name);
-			if(isWeekConditionMet(weekFile.showAfter) && (!weekFile.hiddenUntilUnlocked || !weekIsLocked(name)))
+			if(isSaveConditionMet(weekFile.showAfter) && (!weekFile.hiddenUntilUnlocked || !weekIsLocked(name)))
 				loadedWeeks.push(weekFile);
 		}
 
@@ -537,10 +537,10 @@ class StoryMenuState extends MusicBeatState
 	function weekIsLocked(name:String):Bool {
 		var leWeek:WeekData = WeekData.weeksLoaded.get(name);
 		return (!leWeek.startUnlocked && leWeek.weekBefore.length > 0 && (!weekCompleted.exists(leWeek.weekBefore) || !weekCompleted.get(leWeek.weekBefore)))
-			|| !isWeekConditionMet(leWeek.unlockedAfter);
+			|| !isSaveConditionMet(leWeek.unlockedAfter);
 	}
 
-	function isWeekConditionMet(condition:UnlockData):Bool
+	function isSaveConditionMet(condition:UnlockData):Bool
 	{
 		if(condition == null) return true;
 		var name:String = condition.save != null ? condition.save.trim() : '';
@@ -572,6 +572,7 @@ class StoryMenuState extends MusicBeatState
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		var stringThing:Array<String> = [];
 		for (song in WeekData.getStorySongs(leWeek)) {
+			if(!isSaveConditionMet(song.showInStoryMode)) continue;
 			if (Difficulty.list.length > 0 && song.difficulties.split(',').map(function(str:String):String
 				{return str.trim().toLowerCase();}).contains(Difficulty.getString(curDifficulty, false).toLowerCase()))
 				stringThing.push(song.songName);
@@ -579,8 +580,9 @@ class StoryMenuState extends MusicBeatState
 		}
 		if(stringThing.length < 1 && Difficulty.list.length > 0)
 		{
-			var redirectSong:Dynamic = WeekData.getFreeplayRedirectSong(leWeek);
-			if(redirectSong != null) stringThing.push(redirectSong[0] + ' (Freeplay)');
+			var redirectSong:SongData = WeekData.getFreeplayRedirectSong(leWeek);
+			if(redirectSong != null && isSaveConditionMet(redirectSong.showInStoryMode))
+				stringThing.push(redirectSong.songName + ' (Freeplay)');
 		}
 
 		txtTracklist.text = '';
