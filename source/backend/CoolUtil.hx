@@ -84,12 +84,19 @@ class CoolUtil
 
 	inline public static function dominantColor(sprite:flixel.FlxSprite):Int
 	{
+		if(sprite.frames == null || sprite.frames.numFrames == 0) return FlxColor.BLACK;
+		// Sample the first neutral frame without changing the sprite's playback state.
+		var idle = sprite.animation.getByName('idle');
+		var frameIndex = idle != null && idle.frames.length > 0 ? idle.frames[0] : 0;
+		var frame = sprite.frames.getByIndex(frameIndex);
+		if(frame == null) return FlxColor.BLACK;
+		var pixels = frame.paint();
 		var countByColor:Map<Int, Int> = [];
-		for(col in 0...sprite.frameWidth)
+		for(col in 0...pixels.width)
 		{
-			for(row in 0...sprite.frameHeight)
+			for(row in 0...pixels.height)
 			{
-				var colorOfThisPixel:FlxColor = sprite.pixels.getPixel32(col, row);
+				var colorOfThisPixel:FlxColor = pixels.getPixel32(col, row);
 				if(colorOfThisPixel.alphaFloat > 0.05)
 				{
 					colorOfThisPixel = FlxColor.fromRGB(colorOfThisPixel.red, colorOfThisPixel.green, colorOfThisPixel.blue, 255);
@@ -98,6 +105,7 @@ class CoolUtil
 				}
 			}
 		}
+		pixels.dispose();
 
 		var maxCount = 0;
 		var maxKey:Int = 0; //after the loop this will store the max color

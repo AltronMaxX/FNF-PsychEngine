@@ -11,6 +11,8 @@ class ResetScoreSubState extends MusicBeatSubstate
 	var bg:FlxSprite;
 	var alphabetArray:Array<Alphabet> = [];
 	var icon:HealthIcon;
+	var iconCenterX:Float = 0;
+	var iconCenterY:Float = 0;
 	var onYes:Bool = false;
 	var yesText:Alphabet;
 	var noText:Alphabet;
@@ -48,7 +50,8 @@ class ResetScoreSubState extends MusicBeatSubstate
 		var iconSpace:Float = 0;
 		if(week == -1) {
 			icon = new HealthIcon(character);
-			iconSpace = icon.width + 10;
+			icon.autoAdjustOffset = false; // This dialog positions the actual bounds, rather than a 150px HUD cell.
+			iconSpace = icon.getMaxWidth() + 10;
 		}
 		var maxTextWidth:Float = FlxG.width - 80 - iconSpace;
 		wrapText(text, name, difficultyName, maxTextWidth);
@@ -67,10 +70,11 @@ class ResetScoreSubState extends MusicBeatSubstate
 		if(week == -1) {
 			icon.setGraphicSize(Std.int(icon.width * textScale));
 			icon.updateHitbox();
-			iconSpace = icon.width + 10 * textScale;
+			iconSpace = icon.getMaxWidth() + 10 * textScale;
 			var rowLeft:Float = (FlxG.width - text.width - iconSpace) / 2;
 			text.x += iconSpace / 2;
-			icon.setPosition(rowLeft, text.y + (text.height - icon.height) / 2);
+			iconCenterX = rowLeft + icon.getMaxWidth() / 2;
+			icon.setPosition(iconCenterX - icon.width / 2, text.y + (text.height - icon.height) / 2);
 			icon.alpha = 0;
 			add(icon);
 		}
@@ -83,6 +87,7 @@ class ResetScoreSubState extends MusicBeatSubstate
 		noText.x += 200;
 		add(noText);
 		centerContentVertically();
+		if(icon != null) iconCenterY = icon.y + icon.height / 2;
 		
 		for(letter in yesText.letters) letter.color = FlxColor.RED;
 		updateOptions();
@@ -121,8 +126,10 @@ class ResetScoreSubState extends MusicBeatSubstate
 		var top:Float = content[0].y;
 		var bottom:Float = top + content[0].height;
 		for(item in content) {
-			top = Math.min(top, item.y);
-			bottom = Math.max(bottom, item.y + item.height);
+			var itemHeight:Float = item == icon ? icon.getMaxHeight() : item.height;
+			var itemY:Float = item.y + (item.height - itemHeight) / 2;
+			top = Math.min(top, itemY);
+			bottom = Math.max(bottom, itemY + itemHeight);
 		}
 		var offset:Float = (FlxG.height - (bottom - top)) / 2 - top;
 		for(item in content) item.y += offset;
@@ -159,6 +166,7 @@ class ResetScoreSubState extends MusicBeatSubstate
 			close();
 		}
 		super.update(elapsed);
+		if(icon != null) icon.setPosition(iconCenterX - icon.width / 2, iconCenterY - icon.height / 2);
 	}
 
 	function updateOptions() {
@@ -170,6 +178,6 @@ class ResetScoreSubState extends MusicBeatSubstate
 		yesText.scale.set(scales[confirmInt], scales[confirmInt]);
 		noText.alpha = alphas[1 - confirmInt];
 		noText.scale.set(scales[1 - confirmInt], scales[1 - confirmInt]);
-		if(week == -1) icon.animation.curAnim.curFrame = confirmInt;
+		if(week == -1) icon.setState(onYes ? 'losing' : 'idle');
 	}
 }

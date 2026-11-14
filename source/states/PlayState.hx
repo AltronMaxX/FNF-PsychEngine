@@ -550,6 +550,7 @@ class PlayState extends MusicBeatState
 		iconP2.visible = !ClientPrefs.data.hideHud;
 		iconP2.alpha = ClientPrefs.data.healthBarAlpha;
 		uiGroup.add(iconP2);
+		health = health; // Initialize the bar percentage before selecting either icon's state.
 
 		scoreTxt = new FlxText(0, healthBar.y + 40, FlxG.width, "", 20);
 		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -2020,20 +2021,15 @@ class PlayState extends MusicBeatState
 	// Health icon updaters
 	public dynamic function updateIconsScale(elapsed:Float)
 	{
-		var mult:Float = FlxMath.lerp(1, iconP1.scale.x, Math.exp(-elapsed * 9 * playbackRate));
-		iconP1.scale.set(mult, mult);
-		iconP1.updateHitbox();
-
-		var mult:Float = FlxMath.lerp(1, iconP2.scale.x, Math.exp(-elapsed * 9 * playbackRate));
-		iconP2.scale.set(mult, mult);
-		iconP2.updateHitbox();
+		iconP1.setScaleMultiplier(FlxMath.lerp(1, iconP1.scaleMultiplier, Math.exp(-elapsed * 9 * playbackRate)));
+		iconP2.setScaleMultiplier(FlxMath.lerp(1, iconP2.scaleMultiplier, Math.exp(-elapsed * 9 * playbackRate)));
 	}
 
 	public dynamic function updateIconsPosition()
 	{
 		var iconOffset:Int = 26;
-		iconP1.x = healthBar.barCenter + (150 * iconP1.scale.x - 150) / 2 - iconOffset;
-		iconP2.x = healthBar.barCenter - (150 * iconP2.scale.x) / 2 - iconOffset * 2;
+		iconP1.x = healthBar.barCenter + (150 * iconP1.scaleMultiplier - 150) / 2 - iconOffset;
+		iconP2.x = healthBar.barCenter - (150 * iconP2.scaleMultiplier) / 2 - iconOffset * 2;
 	}
 
 	var iconsAnimations:Bool = true;
@@ -2051,8 +2047,8 @@ class PlayState extends MusicBeatState
 		var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBar.valueFunction(), healthBar.bounds.min, healthBar.bounds.max), healthBar.bounds.min, healthBar.bounds.max, 0, 100);
 		healthBar.percent = (newPercent != null ? newPercent : 0);
 
-		iconP1.animation.curAnim.curFrame = (healthBar.percent < 20) ? 1 : 0; //If health is under 20%, change player icon to frame 1 (losing icon), otherwise, frame 0 (normal)
-		iconP2.animation.curAnim.curFrame = (healthBar.percent > 80) ? 1 : 0; //If health is over 80%, change opponent icon to frame 1 (losing icon), otherwise, frame 0 (normal)
+		if(iconP1 != null) iconP1.setHealthPercent(healthBar.percent);
+		if(iconP2 != null) iconP2.setHealthPercent(100 - healthBar.percent);
 		return health;
 	}
 
@@ -2356,6 +2352,7 @@ class PlayState extends MusicBeatState
 							GameOverSubstate.applyCharacterSettings(boyfriend);
 							boyfriend.alpha = lastAlpha;
 							iconP1.changeIcon(boyfriend.healthIcon);
+							if(iconsAnimations) iconP1.setHealthPercent(healthBar.percent);
 						}
 						setOnScripts('boyfriendName', boyfriend.curCharacter);
 
@@ -2378,6 +2375,7 @@ class PlayState extends MusicBeatState
 							}
 							dad.alpha = lastAlpha;
 							iconP2.changeIcon(dad.healthIcon);
+							if(iconsAnimations) iconP2.setHealthPercent(100 - healthBar.percent);
 						}
 						setOnScripts('dadName', dad.curCharacter);
 
@@ -3440,11 +3438,8 @@ class PlayState extends MusicBeatState
 		if (generatedMusic)
 			notes.sort(FlxSort.byY, ClientPrefs.data.downScroll ? FlxSort.ASCENDING : FlxSort.DESCENDING);
 
-		iconP1.scale.set(1.2, 1.2);
-		iconP2.scale.set(1.2, 1.2);
-
-		iconP1.updateHitbox();
-		iconP2.updateHitbox();
+		iconP1.bop();
+		iconP2.bop();
 
 		characterBopper(curBeat);
 

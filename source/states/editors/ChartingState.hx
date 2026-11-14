@@ -365,8 +365,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			icon.y = iconY;
 			icon.alpha = 0.6;
 			icon.scrollFactor.set();
-			icon.scale.set(0.3, 0.3);
-			icon.updateHitbox();
+			icon.setScaleMultiplier(0.3);
 			icon.ID = GRID_PLAYERS - i;
 			add(icon);
 			icons.push(icon);

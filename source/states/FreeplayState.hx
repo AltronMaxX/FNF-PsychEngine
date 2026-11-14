@@ -84,6 +84,7 @@ class FreeplayState extends MusicBeatState
 	var bpmText:FlxText;
 
 	var charBubbles:BubbleSelector;
+	var charSelectBG:FlxSprite;
 	var selectedCharIcon:HealthIcon;
 	var bpmTitle:Float;
 	var bpmSong:Float;
@@ -150,7 +151,11 @@ class FreeplayState extends MusicBeatState
 				reloadSongs(i);
 		}
 
-		selectedCharIcon = new HealthIcon();
+		charSelectBG = new FlxSprite(FlxG.width - 326, FlxG.height - 176).makeGraphic(326, 150, 0xFF000000);
+		charSelectBG.alpha = 0.6;
+
+		selectedCharIcon = new HealthIcon('face', true);
+		selectedCharIcon.autoAdjustOffset = false;
 		updateSelectedCharacterIcon();
 
 		loadFreeplayDifficulties();
@@ -238,9 +243,6 @@ class FreeplayState extends MusicBeatState
 		intendedColor = bg.color;
 		lerpSelected = curSelected;
 
-		var charSelectBG = new FlxSprite(FlxG.width - 326, FlxG.height - 176).makeGraphic(326, 150, 0xFF000000);
-		charSelectBG.alpha = 0.6;
-
 		var charArrow1 = new FlxSprite();
 		charArrow1.loadGraphic(Paths.image('charArrow'));
 		charArrow1.x = FlxG.width - 316;
@@ -254,7 +256,7 @@ class FreeplayState extends MusicBeatState
 
 		charBubbles = new BubbleSelector(freeplayCharacters.length);
 		charBubbles.x = charSelectBG.x + charSelectBG.width / 2 - charBubbles.width / 2;
-		charBubbles.y = selectedCharIcon.y + 125;
+		charBubbles.y = charSelectBG.y + charSelectBG.height - 25;
 		charBubbles.changeSelection(curSelectedChar);
 
 		var charArrow2 = new FlxSprite();
@@ -676,15 +678,27 @@ class FreeplayState extends MusicBeatState
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
 			var time:Float = FlxG.sound.music.time;
-			var beat:Int = Math.floor(Conductor.getBeat(time));
+			var songBeat:Float = Conductor.getBeat(time);
+			var beat:Int = Math.floor(songBeat);
+			var bgBeat:Float = Math.floor(beat / 4) * 4;
+			if(player.playingMusic && PlayState.SONG != null)
+			{
+				var sectionBeat:Float = 0;
+				for(section in PlayState.SONG.notes)
+				{
+					if(sectionBeat > songBeat) break;
+					bgBeat = sectionBeat;
+					var sectionBeats:Null<Float> = section.sectionBeats;
+					sectionBeat += Math.round((sectionBeats != null ? sectionBeats : 4) * 4) / 4;
+				}
+			}
 			var iconAge:Float = Math.max(0, time - Conductor.beatToSeconds(beat)) / 1000;
-			var bgAge:Float = Math.max(0, time - Conductor.beatToSeconds(Math.floor(beat / 4) * 4)) / 1000;
+			var bgAge:Float = Math.max(0, time - Conductor.beatToSeconds(bgBeat)) / 1000;
 			iconScale += 0.2 * Math.exp(-9 * iconAge);
 			bgScale += 0.05 * Math.exp(-9 * bgAge);
 		}
 		var icon = iconArray.members[curSelected];
-		icon.scale.set(iconScale, iconScale);
-		icon.updateHitbox();
+		icon.setScaleMultiplier(icon.shouldBop ? iconScale : 1);
 		bg.scale.set(bgScale, bgScale);
 		bg.updateHitbox();
 		bg.screenCenter();
@@ -797,9 +811,8 @@ class FreeplayState extends MusicBeatState
 	function updateSelectedCharacterIcon()
 	{
 		selectedCharIcon.changeIcon(freeplayCharacters[curSelectedChar]);
-		selectedCharIcon.x = FlxG.width - 90 - selectedCharIcon.width;
-		selectedCharIcon.y = FlxG.height - 26 - selectedCharIcon.height;
-		selectedCharIcon.flipX = true;
+		selectedCharIcon.x = charSelectBG.x + (charSelectBG.width - selectedCharIcon.width) / 2;
+		selectedCharIcon.y = charSelectBG.y + (charSelectBG.height - selectedCharIcon.height) / 2 - 5;
 	}
 
 	function getAvailableDifficulty(preferred:String):Int
@@ -915,8 +928,7 @@ class FreeplayState extends MusicBeatState
 			var icon:HealthIcon = iconArray.members[num];
 			item.alpha = 0.6;
 			icon.alpha = 0.6;
-			icon.scale.set(1, 1);
-			icon.updateHitbox();
+			icon.setScaleMultiplier(1);
 			if (item.targetY == curSelected)
 			{
 				item.alpha = 1;
