@@ -73,7 +73,7 @@ class StageEditorState extends MusicBeatState implements PsychUIEventHandler.Psy
 		FlxG.cameras.add(camHUD, false);
 
 		#if DISCORD_ALLOWED
-		DiscordClient.changePresence('Stage Editor', 'Stage: ' + lastLoadedStage);
+		DiscordClient.changePresence('Stage Editor', 'Editing stage: ' + lastLoadedStage);
 		#end
 
 		if(stageJson == null) stageJson = StageData.getStageFile(lastLoadedStage);
@@ -1101,7 +1101,7 @@ class StageEditorState extends MusicBeatState implements PsychUIEventHandler.Psy
 		var reloadStage:PsychUIButton = new PsychUIButton(140, 10, 'Reload', function()
 		{
 			#if DISCORD_ALLOWED
-			DiscordClient.changePresence('Stage Editor', 'Stage: ' + lastLoadedStage);
+			DiscordClient.changePresence('Stage Editor', 'Editing stage: ' + lastLoadedStage);
 			#end
 
 			stageJson = StageData.getStageFile(lastLoadedStage);
@@ -1114,7 +1114,7 @@ class StageEditorState extends MusicBeatState implements PsychUIEventHandler.Psy
 		var dummyStage:PsychUIButton = new PsychUIButton(140, 40, 'Load Template', function()
 		{
 			#if DISCORD_ALLOWED
-			DiscordClient.changePresence('Stage Editor', 'New Stage');
+			DiscordClient.changePresence('Stage Editor', 'Creating a new stage');
 			#end
 
 			stageJson = StageData.dummy();
@@ -1138,7 +1138,7 @@ class StageEditorState extends MusicBeatState implements PsychUIEventHandler.Psy
 				stageJson = StageData.getStageFile(selected);
 				lastLoadedStage = selected;
 				#if DISCORD_ALLOWED
-				DiscordClient.changePresence('Stage Editor', 'Stage: ' + lastLoadedStage);
+				DiscordClient.changePresence('Stage Editor', 'Editing stage: ' + lastLoadedStage);
 				#end
 				updateSpriteList();
 				updateStageDataUI();

@@ -75,7 +75,7 @@ class CustomSubstate extends MusicBeatSubstate
 		CustomSubstate.name = name;
 		PlayState.instance.setOnHScript('customSubstateName', name);
 		super();
-		cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
+		cameras = [PlayState.instance.camOther];
 	}
 	
 	override function update(elapsed:Float)

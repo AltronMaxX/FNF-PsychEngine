@@ -12,6 +12,9 @@ class LanguageSubState extends MusicBeatSubstate
 	public function new()
 	{
 		super();
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence('Language Settings Menu', null);
+		#end
 
 		var bg = OptionsSubState.createBackground();
 		add(bg);

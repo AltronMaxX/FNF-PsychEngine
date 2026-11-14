@@ -61,7 +61,7 @@ class StoryMenuState extends MusicBeatState
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
-		DiscordClient.changePresence("In the Menus", null);
+		DiscordClient.changePresence('Story Mode', 'Choosing a week');
 		#end
 
 		if(WeekData.weeksList.length < 1)
@@ -599,6 +599,10 @@ class StoryMenuState extends MusicBeatState
 
 		#if !switch
 		intendedScore = Difficulty.list.length > 0 ? Highscore.getWeekScore(loadedWeeks[curWeek].fileName, curDifficulty) : 0;
+		#end
+		#if DISCORD_ALLOWED
+		var difficulty = Difficulty.list.length > 0 ? Difficulty.getDisplayString(curDifficulty, false) : 'No difficulties';
+		DiscordClient.changePresence('Story Mode', 'Choosing a week: ${txtWeekTitle.text} [$difficulty]');
 		#end
 	}
 }

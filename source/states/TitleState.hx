@@ -77,6 +77,9 @@ class TitleState extends MusicBeatState
 		}
 
 		curWacky = FlxG.random.getObject(getIntroTextShit());
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence('Title Menu');
+		#end
 
 		if(!initialized)
 		{

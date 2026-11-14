@@ -395,7 +395,7 @@ class DialogueCharacterEditorState extends MusicBeatState implements PsychUIEven
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
-		DiscordClient.changePresence("Dialogue Character Editor", "Editting: " + character.jsonFile.image);
+		DiscordClient.changePresence('Dialogue Portrait Editor', 'Editing portrait: ' + character.jsonFile.image);
 		#end
 	}
 

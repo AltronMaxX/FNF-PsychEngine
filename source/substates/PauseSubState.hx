@@ -414,6 +414,9 @@ class PauseSubState extends MusicBeatSubstate
 					PlayState.instance.practiceMode = !PlayState.instance.practiceMode;
 					PlayState.changedDifficulty = true;
 					practiceText.visible = PlayState.instance.practiceMode;
+					#if DISCORD_ALLOWED
+					PlayState.instance.updateDiscordPresence('Paused');
+					#end
 				case "Restart Song":
 					restartSong();
 				case "Leave Charting Mode":
@@ -445,9 +448,13 @@ class PauseSubState extends MusicBeatSubstate
 					PlayState.instance.botplayTxt.visible = PlayState.instance.cpuControlled;
 					PlayState.instance.botplayTxt.alpha = 1;
 					PlayState.instance.botplaySine = 0;
+					#if DISCORD_ALLOWED
+					PlayState.instance.updateDiscordPresence('Paused');
+					#end
 				case 'Options':
 					openOptions();
 				case "Exit to menu":
+					FlxG.sound.play(Paths.sound('cancelMenu'));
 					#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
 					PlayState.deathCounter = 0;
 					PlayState.seenCutscene = false;

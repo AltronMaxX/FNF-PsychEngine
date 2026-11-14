@@ -31,7 +31,7 @@ class MasterEditorMenu extends MusicBeatState
 		FlxG.camera.bgColor = FlxColor.BLACK;
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
-		DiscordClient.changePresence("Editors Main Menu", null);
+		DiscordClient.changePresence('Editors Menu', 'Choosing an editor');
 		#end
 
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
@@ -140,6 +140,9 @@ class MasterEditorMenu extends MusicBeatState
 	{
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 		curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence('Editors Menu', 'Choosing an editor: ' + options[curSelected]);
+		#end
 	}
 
 	#if MODS_ALLOWED

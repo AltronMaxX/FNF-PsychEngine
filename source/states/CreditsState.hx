@@ -23,7 +23,7 @@ class CreditsState extends MusicBeatState
 	{
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
-		DiscordClient.changePresence("In the Menus", null);
+		DiscordClient.changePresence('Credits Menu');
 		#end
 
 		persistentUpdate = true;
@@ -218,39 +218,27 @@ class CreditsState extends MusicBeatState
 				}
 			}
 		}
-		var previousStep:Int = curStep;
 		super.update(elapsed);
-		// MusicBeatState skips step zero, including the first beat after a music loop.
-		if (curStep == 0 && previousStep != curStep)
-			beatHit();
-
-		// Keep the original hitbox/offset: AttachedSprite anchors x/y to the text row.
-		// Updating the hitbox after scaling would shift the visual center.
-		var mult:Float = FlxMath.lerp(1, iconArray[curSelected].scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-		iconArray[curSelected].scale.set(mult, mult);
-
-		if (curBeat % 4 == 0)
-		{
-			var multX:Float = FlxMath.lerp(1, bg.scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-			var multY:Float = FlxMath.lerp(1, bg.scale.y, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-			bg.scale.set(multX, multY);
-			bg.screenCenter();
-			bg.updateHitbox();
-		}
+		updateBeatScales();
 	}
 
-	override function beatHit()
+	function updateBeatScales()
 	{
-		super.beatHit();
-
-		iconArray[curSelected].scale.set(1.2, 1.2);
-
-		if (curBeat % 4 == 0)
+		var iconScale:Float = 1;
+		var bgScale:Float = 1;
+		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
-			bg.scale.set(1.05, 1.05);
-			bg.screenCenter();
-			bg.updateHitbox();
+			var time:Float = FlxG.sound.music.time;
+			var beat:Int = Math.floor(Conductor.getBeat(time));
+			var iconAge:Float = Math.max(0, time - Conductor.beatToSeconds(beat)) / 1000;
+			var bgAge:Float = Math.max(0, time - Conductor.beatToSeconds(Math.floor(beat / 4) * 4)) / 1000;
+			iconScale += 0.2 * Math.exp(-9 * iconAge);
+			bgScale += 0.05 * Math.exp(-9 * bgAge);
 		}
+		iconArray[curSelected].scale.set(iconScale, iconScale);
+		bg.scale.set(bgScale, bgScale);
+		bg.updateHitbox();
+		bg.screenCenter();
 	}
 
 	function loadCreditsBpm():Void

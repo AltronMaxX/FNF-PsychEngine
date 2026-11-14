@@ -100,7 +100,7 @@ class FreeplayState extends MusicBeatState
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
-		DiscordClient.changePresence("In the Menus", null);
+		DiscordClient.changePresence('Freeplay', 'Choosing a song');
 		#end
 
 		if(WeekData.weeksList.length < 1)
@@ -219,7 +219,7 @@ class FreeplayState extends MusicBeatState
 		bpmInput.font = bpmInput.font;
 		bpmInput.text = Std.string(bpmTitle);
 		bpmInput.visible = false;
-		Conductor.bpm = bpmTitle;
+		resetMenuBeatTiming();
 		add(bpmInput);
 
 		missingTextBG = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
@@ -299,7 +299,8 @@ class FreeplayState extends MusicBeatState
 			var requestedCharacter:Int = Std.int(Math.max(0, freeplayCharacters.indexOf('bf')));
 			if (freeplayCharacters.contains(requestedFreeplayChar))
 				requestedCharacter = freeplayCharacters.indexOf(requestedFreeplayChar);
-			changeCharacter(requestedCharacter - curSelectedChar);
+			if (requestedCharacter != curSelectedChar)
+				changeCharacter(requestedCharacter - curSelectedChar, false);
 			var songArr = _songs[requestedSongDiff];
 			if(songArr != null)
 			for (i in 0...songArr.length)
@@ -321,7 +322,11 @@ class FreeplayState extends MusicBeatState
 			requestedSongWeek = null;
 		}
 		
-		changeSelection();
+		changeSelection(0, false);
+		FlxTween.cancelTweensOf(bg);
+		intendedColor = songs[curSelected].color;
+		bg.color = intendedColor;
+		lerpSelected = curSelected;
 		updateTexts();
 	}
 
@@ -661,19 +666,28 @@ class FreeplayState extends MusicBeatState
 
 		updateTexts(elapsed);
 		super.update(elapsed);
+		updateBeatScales();
+	}
 
-		var mult:Float = FlxMath.lerp(1, iconArray.members[curSelected].scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-		iconArray.members[curSelected].scale.set(mult, mult);
-		iconArray.members[curSelected].updateHitbox();
-
-		if (curBeat % 4 == 0)
+	function updateBeatScales()
+	{
+		var iconScale:Float = 1;
+		var bgScale:Float = 1;
+		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
-			var multX:Float = FlxMath.lerp(1, bg.scale.x, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-			var multY:Float = FlxMath.lerp(1, bg.scale.y, Math.exp(-elapsed * 9 * ClientPrefs.getGameplaySetting('songspeed')));
-			bg.scale.set(multX, multY);
-			bg.screenCenter();
-			bg.updateHitbox();
+			var time:Float = FlxG.sound.music.time;
+			var beat:Int = Math.floor(Conductor.getBeat(time));
+			var iconAge:Float = Math.max(0, time - Conductor.beatToSeconds(beat)) / 1000;
+			var bgAge:Float = Math.max(0, time - Conductor.beatToSeconds(Math.floor(beat / 4) * 4)) / 1000;
+			iconScale += 0.2 * Math.exp(-9 * iconAge);
+			bgScale += 0.05 * Math.exp(-9 * bgAge);
 		}
+		var icon = iconArray.members[curSelected];
+		icon.scale.set(iconScale, iconScale);
+		icon.updateHitbox();
+		bg.scale.set(bgScale, bgScale);
+		bg.updateHitbox();
+		bg.screenCenter();
 	}
 	
 	function getVocalFromCharacter(char:String)
@@ -704,6 +718,7 @@ class FreeplayState extends MusicBeatState
 	{
 		if (player.playingMusic)
 			return;
+		if (change != 0) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 
 		var futureDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
 
@@ -745,7 +760,7 @@ class FreeplayState extends MusicBeatState
 					}
 				}
 			}
-			changeSelection(0, true, false);
+			changeSelection(0, false, false);
 			lerpSelected = curSelected + scrollOffset;
 		}
 
@@ -766,6 +781,9 @@ class FreeplayState extends MusicBeatState
 		positionHighscore();
 		missingText.visible = false;
 		missingTextBG.visible = false;
+		#if DISCORD_ALLOWED
+		updateDiscordPresence();
+		#end
 	}
 
 	private function areInstancesEqual(arr1:Array<SongMetadata>, arr2:Array<SongMetadata>):Bool {
@@ -868,7 +886,7 @@ class FreeplayState extends MusicBeatState
 					curSelected = songs.indexOf(song);
 			}
 		}
-		changeSelection();
+		changeSelection(0, playSound);
 
 		lerpSelected = curSelected + scrollOffset;
 		diffSel.loadUnavailable(unavailableDiffs);
@@ -926,7 +944,21 @@ class FreeplayState extends MusicBeatState
 		if (updateDiff)
 			changeDiff();
 		_updateSongLastDifficulty();
+		#if DISCORD_ALLOWED
+		updateDiscordPresence();
+		#end
 	}
+
+	#if DISCORD_ALLOWED
+	function updateDiscordPresence():Void
+	{
+		if(curDifficulty < 0 || curDifficulty >= Difficulty.list.length || songs == null || songs.length == 0) return;
+		var selected = songs[curSelected];
+		if(selected == null) return;
+		var name = isSongLocked(curSelected) ? lockedSongName(selected.songName) : selected.songName;
+		DiscordClient.changePresence('Freeplay', 'Choosing a song: $name [${Difficulty.getDisplayString(curDifficulty, false)}]');
+	}
+	#end
 
 	inline private function _updateSongLastDifficulty()
 		songs[curSelected].lastDifficulty = Difficulty.getString(curDifficulty, false);
@@ -981,21 +1013,6 @@ class FreeplayState extends MusicBeatState
 		if (!FlxG.sound.music.playing && !stopMusicPlay)
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));
 	}	
-
-	override function beatHit()
-	{
-		super.beatHit();
-
-		iconArray.members[curSelected].scale.set(1.2, 1.2);
-		iconArray.members[curSelected].updateHitbox();
-
-		if (curBeat % 4 == 0)
-		{
-			bg.scale.set(1.05, 1.05);
-			bg.screenCenter();
-			bg.updateHitbox();
-		}
-	}
 
 	private function reloadSongs(index:Int) {
 		var leWeek:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[index]);

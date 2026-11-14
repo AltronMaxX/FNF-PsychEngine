@@ -2356,7 +2356,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}
 
 		#if DISCORD_ALLOWED
-		DiscordClient.changePresence('Chart Editor', 'Song: ' + PlayState.SONG.song);
+		updateDiscordPresence();
 		#end
 
 		updateAudioVolume();
@@ -5500,11 +5500,23 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	{
 		ClientPrefs.toggleVolumeKeys(true);
 		super.closeSubState();
+		#if DISCORD_ALLOWED
+		updateDiscordPresence();
+		#end
 		upperBox.isMinimized = true;
 		upperBox.visible = mainBox.visible = infoBox.visible = true;
 		upperBox.bg.visible = false;
 		updateAudioVolume();
 	}
+
+	#if DISCORD_ALLOWED
+	function updateDiscordPresence():Void
+	{
+		DiscordClient.changePresence('Chart Editor', 'Editing song: ${PlayState.SONG.song} [${Difficulty.getDisplayString(null, false)}]',
+			null, false, 0, 'icon',
+			PlayState.SONG.artist);
+	}
+	#end
 
 	override function destroy()
 	{

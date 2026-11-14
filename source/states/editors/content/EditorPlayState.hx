@@ -156,7 +156,10 @@ class EditorPlayState extends MusicBeatSubstate
 		
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence (with Time Left)
-		DiscordClient.changePresence('Playtesting on Chart Editor', PlayState.SONG.song, null, true, songLength);
+		DiscordClient.changePresence('Chart Editor Playtest',
+			'Playtesting song: ${PlayState.SONG.song} [${Difficulty.getDisplayString(null, false)}]',
+			null, false, 0, 'icon',
+			PlayState.SONG.artist);
 		#end
 		updateScore();
 		cachePopUpScore();

@@ -1262,7 +1262,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 	inline function updatePresence() {
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
-		DiscordClient.changePresence("Character Editor", "Character: " + _char, healthIcon.getCharacter());
+		DiscordClient.changePresence('Character Editor', 'Editing character: ' + _char);
 		#end
 	}
 

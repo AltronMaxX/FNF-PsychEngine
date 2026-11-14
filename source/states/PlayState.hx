@@ -6,6 +6,9 @@ import backend.WeekData;
 import backend.Song;
 import backend.Rating;
 import backend.ClientPrefs.VisualOptions;
+#if DISCORD_ALLOWED
+import backend.Discord.DiscordPresenceData;
+#end
 import options.OptionsSubState.OptionsSession;
 
 import flixel.FlxBasic;
@@ -240,10 +243,7 @@ class PlayState extends MusicBeatState
 	public var girlfriendCameraOffset:Array<Float> = null;
 
 	#if DISCORD_ALLOWED
-	// Discord RPC variables
-	var storyDifficultyText:String = "";
-	var detailsText:String = "";
-	var detailsPausedText:String = "";
+	var discordSongFinished:Bool = false;
 	#end
 
 	//Achievement shit
@@ -335,19 +335,6 @@ class PlayState extends MusicBeatState
 				FreeplayState.queueSongSelection(Song.loadedSongName != null ? Song.loadedSongName : SONG.song,
 					Difficulty.getString(storyDifficulty, false), week.freeplayCharacter, week.folder, week.fileName);
 		}
-
-		#if DISCORD_ALLOWED
-		// String that contains the mode defined here so it isn't necessary to call changePresence for each mode
-		storyDifficultyText = Difficulty.getDisplayString();
-
-		if (isStoryMode)
-			detailsText = "Story Mode: " + WeekData.getCurrentWeek().weekName;
-		else
-			detailsText = "Freeplay";
-
-		// String for when the game is paused
-		detailsPausedText = "Paused - " + detailsText;
-		#end
 
 		GameOverSubstate.resetVariables();
 		songName = Paths.formatToSongPath(SONG.song);
@@ -640,7 +627,9 @@ class PlayState extends MusicBeatState
 		else if(Paths.formatToSongPath(ClientPrefs.data.pauseMusic) != 'none')
 			Paths.music(Paths.formatToSongPath(ClientPrefs.data.pauseMusic));
 
-		resetRPC();
+		#if DISCORD_ALLOWED
+		updateDiscordPresence();
+		#end
 
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
@@ -1281,7 +1270,7 @@ class PlayState extends MusicBeatState
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence (with Time Left)
-		if(autoUpdateRPC) DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter(), true, songLength);
+		updateDiscordPresence();
 		#end
 		setOnScripts('songLength', songLength);
 		callOnScripts('onSongStart');
@@ -1618,7 +1607,9 @@ class PlayState extends MusicBeatState
 
 			paused = false;
 			callOnScripts('onResume');
-			resetRPC(startTimer != null && startTimer.finished);
+			#if DISCORD_ALLOWED
+			updateDiscordPresence();
+			#end
 		}
 	}
 
@@ -1628,33 +1619,36 @@ class PlayState extends MusicBeatState
 		super.onFocus();
 		if (!paused && health > 0)
 		{
-			resetRPC(Conductor.songPosition > 0.0);
+			updateDiscordPresence();
 		}
 	}
 
 	override public function onFocusLost():Void
 	{
 		super.onFocusLost();
-		if (!paused && health > 0 && autoUpdateRPC)
+		if (!paused && health > 0 && autoUpdateRPC && FlxG.autoPause)
 		{
-			DiscordClient.changePresence(detailsPausedText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
+			updateDiscordPresence('Paused');
 		}
 	}
 	#end
 
 	// Updating Discord Rich Presence.
 	public var autoUpdateRPC:Bool = true; //performance setting for custom RPC things
-	function resetRPC(?showTime:Bool = false)
+	#if DISCORD_ALLOWED
+	public function updateDiscordPresence(?status:String):Void
 	{
-		#if DISCORD_ALLOWED
-		if(!autoUpdateRPC) return;
-
-		if (showTime)
-			DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter(), true, songLength - Conductor.songPosition - ClientPrefs.data.noteOffset);
-		else
-			DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
-		#end
+		if(!autoUpdateRPC || SONG == null) return;
+		if(status == null)
+			status = isDead ? 'Game Over' : paused ? 'Paused' : 'Playing';
+		// inst already contains this song during the countdown; sound.music can still be Freeplay/menu audio.
+		var length = inst != null ? inst.length : 0;
+		var remaining = DiscordPresenceData.remainingSongMs(length, Conductor.songPosition, discordSongFinished || endingSong);
+		DiscordClient.changePresence(DiscordPresenceData.songDetails(SONG.song, Difficulty.getDisplayString(storyDifficulty, false), status),
+			DiscordPresenceData.statistics(songScore, remaining, cpuControlled),
+			null, false, 0, 'icon', SONG.artist);
 	}
+	#end
 
 	function resyncVocals():Void
 	{
@@ -1775,7 +1769,7 @@ class PlayState extends MusicBeatState
 		}
 		#if DISCORD_ALLOWED
 		if (ClientPrefs.data.discordRPC && autoUpdateRPC)
-			DiscordClient.changePresence(detailsPausedText, SONG.song + ' (' + storyDifficultyText + ')', iconP2.getCharacter());
+			updateDiscordPresence('Paused');
 		#end
 	}
 
@@ -2005,6 +1999,10 @@ class PlayState extends MusicBeatState
 
 		setOnScripts('botPlay', cpuControlled);
 		callOnScripts('onUpdatePost', [elapsed]);
+		#if DISCORD_ALLOWED
+		if(autoUpdateRPC && !paused && !isDead && !endingSong && FlxG.state == this)
+			updateDiscordPresence();
+		#end
 		if (!paused)
 			grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
 			{
@@ -2082,7 +2080,7 @@ class PlayState extends MusicBeatState
 		openSubState(new PauseSubState());
 
 		#if DISCORD_ALLOWED
-		if(autoUpdateRPC) DiscordClient.changePresence(detailsPausedText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
+		updateDiscordPresence('Paused');
 		#end
 	}
 
@@ -2102,7 +2100,7 @@ class PlayState extends MusicBeatState
 			opponentVocals.pause();
 
 		#if DISCORD_ALLOWED
-		DiscordClient.changePresence("Chart Editor", null, null, true);
+		DiscordClient.changePresence('Chart Editor', 'Opening the chart editor');
 		DiscordClient.resetClientID();
 		#end
 
@@ -2142,6 +2140,10 @@ class PlayState extends MusicBeatState
 				paused = true;
 				canResync = false;
 				canPause = false;
+				#if DISCORD_ALLOWED
+				// Capture the chart position before GameOverSubstate resets its clock.
+				updateDiscordPresence('Game Over');
+				#end
 				#if VIDEOS_ALLOWED
 				if(videoCutscene != null)
 				{
@@ -2177,10 +2179,6 @@ class PlayState extends MusicBeatState
 
 				// MusicBeatState.switchState(new GameOverState(boyfriend.getScreenPosition().x, boyfriend.getScreenPosition().y));
 
-				#if DISCORD_ALLOWED
-				// Game Over doesn't get his its variable because it's only used here
-				if(autoUpdateRPC) DiscordClient.changePresence("Game Over - " + detailsText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
-				#end
 				isDead = true;
 				return true;
 			}
@@ -2527,6 +2525,10 @@ class PlayState extends MusicBeatState
 	public function finishSong(?ignoreNoteOffset:Bool = false):Void
 	{
 		updateTime = false;
+		#if DISCORD_ALLOWED
+		discordSongFinished = true;
+		updateDiscordPresence();
+		#end
 		FlxG.sound.music.volume = 0;
 
 		vocals.volume = 0;
@@ -2570,6 +2572,10 @@ class PlayState extends MusicBeatState
 		timeTxt.visible = false;
 		canPause = false;
 		endingSong = true;
+		#if DISCORD_ALLOWED
+		discordSongFinished = true;
+		updateDiscordPresence();
+		#end
 		camZooming = false;
 		inCutscene = false;
 		updateTime = false;
