@@ -6,7 +6,7 @@ class ChartingEventText
 	public static function singleLine(value:String):String
 		return value == null ? '' : value.split('\r').join(' ').split('\n').join(' ');
 
-	static function prefixLength(value:String, width:Float, measure:String->Float):Int
+	static function prefixLength(value:UnicodeString, width:Float, measure:String->Float):Int
 	{
 		var low = 0;
 		var high = value.length;
@@ -21,11 +21,11 @@ class ChartingEventText
 
 	public static function ellipsize(value:String, width:Float, measure:String->Float):String
 	{
-		value = singleLine(value);
-		if(measure(value) <= width) return value;
+		var line:UnicodeString = singleLine(value);
+		if(measure(line) <= width) return line;
 		var dots = '...';
 		while(dots.length > 0 && measure(dots) > width) dots = dots.substr(1);
-		return value.substr(0, prefixLength(value, Math.max(0, width - measure(dots)), measure)).rtrim() + dots;
+		return line.substr(0, prefixLength(line, Math.max(0, width - measure(dots)), measure)).rtrim() + dots;
 	}
 
 	public static function compact(events:Array<Array<String>>, width:Float, measure:String->Float):String
@@ -36,7 +36,7 @@ class ChartingEventText
 			return [for (line in ['Event: ' + singleLine(e[0]), 'Value 1: ' + singleLine(e[1]), 'Value 2: ' + singleLine(e[2])])
 				ellipsize(line, width, measure)].join('\n');
 		}
-		var names = [for (e in events) singleLine(e[0])].join(', ');
+		var names:UnicodeString = [for (e in events) singleLine(e[0])].join(', ');
 		var end = prefixLength(names, width, measure);
 		if(end < names.length)
 		{

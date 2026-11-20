@@ -95,6 +95,8 @@ class FunkinLua {
 		set('stepCrochet', Conductor.stepCrochet);
 		set('songLength', FlxG.sound.music.length);
 		set('songName', PlayState.SONG.song);
+		set('songArtist', PlayState.SONG.artist);
+		set('songCharter', PlayState.SONG.charter);
 		set('songPath', Paths.formatToSongPath(PlayState.SONG.song));
 		set('loadedSongName', Song.loadedSongName);
 		set('loadedSongPath', Paths.formatToSongPath(Song.loadedSongName));
@@ -108,6 +110,7 @@ class FunkinLua {
 		set('difficultyName', Difficulty.getString(false));
 		set('difficultyPath', Difficulty.getFilePath());
 		set('difficultyNameTranslation', Difficulty.getString(true));
+		set('difficultyDisplayName', Difficulty.getDisplayString());
 		set('weekRaw', PlayState.storyWeek);
 		set('week', WeekData.weeksList[PlayState.storyWeek]);
 		set('seenCutscene', PlayState.seenCutscene);
@@ -161,7 +164,6 @@ class FunkinLua {
 			set('practice', game.practiceMode);
 	
 			set('keys', PlayState.SONG.keys);
-			set('keyCount', KeyMode.songKeys());
 			for (i in 0...KeyMode.songKeys()) {
 				set('defaultPlayerStrumX' + i, 0);
 				set('defaultPlayerStrumY' + i, 0);
@@ -1853,6 +1855,9 @@ class FunkinLua {
 		if (changed == null || changed.contains('middleScroll')) set('middlescroll', ClientPrefs.data.middleScroll);
 		if (changed == null || changed.contains('framerate')) set('framerate', ClientPrefs.data.framerate);
 		if (changed == null || changed.contains('ghostTapping')) set('ghostTapping', ClientPrefs.data.ghostTapping);
+		if (changed == null || changed.contains('enableModcharts')) set('enableModcharts', ClientPrefs.data.enableModcharts);
+		if (changed == null || changed.contains('enableMechanics')) set('enableMechanics', ClientPrefs.data.enableMechanics);
+		if (changed == null || changed.contains('developerMode')) set('developerMode', ClientPrefs.data.developerMode);
 		if (changed == null || changed.contains('hideHud')) set('hideHud', ClientPrefs.data.hideHud);
 		if (changed == null || changed.contains('timeBarType')) set('timeBarType', ClientPrefs.data.timeBarType);
 		if (changed == null || changed.contains('scoreZoom')) set('scoreZoom', ClientPrefs.data.scoreZoom);
@@ -1866,14 +1871,11 @@ class FunkinLua {
 
 		if (changed == null || changed.contains('noteSkin')) set('noteSkin', ClientPrefs.data.noteSkin);
 		if (changed == null || changed.contains('noteSkin')) set('noteSkinPostfix', Note.getNoteSkinPostfix());
-		if (changed == null || changed.contains('customNoteColors')) set('customNoteColors', ClientPrefs.data.customNoteColors);
-		if (changed == null || changed.contains('customNoteColorsPixel')) set('customNoteColorsPixel', ClientPrefs.data.customNoteColorsPixel);
 		if (changed == null || changed.contains('splashSkin')) set('splashSkin', ClientPrefs.data.splashSkin);
 		if (changed == null || changed.contains('splashSkin')) set('splashSkinPostfix', NoteSplash.getSplashSkinPostfix());
 		if (changed == null || changed.contains('splashAlpha')) set('splashAlpha', ClientPrefs.data.splashAlpha);
 		if (changed == null || changed.contains('holdCoverAlpha')) set('holdCoverAlpha', ClientPrefs.data.holdCoverAlpha);
 		if (changed == null || changed.contains('holdSplashAlpha')) set('holdSplashAlpha', ClientPrefs.data.holdSplashAlpha);
-		if (changed == null) set('nativeHoldCovers', true);
 	}
 }
 #end

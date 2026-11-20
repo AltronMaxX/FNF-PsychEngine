@@ -234,6 +234,9 @@ class PsychUIBox extends FlxSpriteGroup
 
 	private function set_selectedTab(v:PsychUITab)
 	{
+		var focus = PsychUIInputText.focusOn;
+		if(focus != null && selectedTab != null && selectedTab != v && selectedTab.menu.members.contains(focus))
+			PsychUIInputText.focusOn = null;
 		if(v != null)
 		{
 			@:bypassAccessor selectedName = v.name;

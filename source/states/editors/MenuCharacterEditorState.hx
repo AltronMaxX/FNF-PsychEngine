@@ -20,6 +20,9 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 	var unsavedProgress:Bool = false;
 
 	override function create() {
+		Conductor.bpmChangeMap = [];
+		Conductor.bpm = states.TitleState.musicBPM;
+
 		characterFile =
 		{
 			image: 'Menu_Dad',
@@ -76,7 +79,7 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 		add(UI_typebox);
 
 		
-		UI_mainbox = new PsychUIBox(FlxG.width - 340, FlxG.height - 265, 240, 215, ['Character']);
+		UI_mainbox = new PsychUIBox(FlxG.width - 340, FlxG.height - 335, 240, 285, ['Character']);
 		UI_mainbox.scrollFactor.set();
 		addCharacterUI();
 		add(UI_mainbox);
@@ -109,6 +112,8 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 	var imageInputText:PsychUIInputText;
 	var idleInputText:PsychUIInputText;
 	var confirmInputText:PsychUIInputText;
+	var danceLeftIndicesInputText:PsychUIInputText;
+	var danceRightIndicesInputText:PsychUIInputText;
 	var scaleStepper:PsychUINumericStepper;
 	var flipXCheckbox:PsychUICheckBox;
 	var antialiasingCheckbox:PsychUICheckBox;
@@ -118,8 +123,12 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 		imageInputText = new PsychUIInputText(10, 20, 80, characterFile.image, 8);
 		idleInputText = new PsychUIInputText(10, imageInputText.y + 35, 100, characterFile.idle_anim, 8);
 		confirmInputText = new PsychUIInputText(10, idleInputText.y + 35, 100, characterFile.confirm_anim, 8);
+		danceLeftIndicesInputText = new PsychUIInputText(10, confirmInputText.y + 35, 220,
+			characterFile.dance_left != null ? characterFile.dance_left.join(', ') : '', 8);
+		danceRightIndicesInputText = new PsychUIInputText(10, danceLeftIndicesInputText.y + 35, 220,
+			characterFile.dance_right != null ? characterFile.dance_right.join(', ') : '', 8);
 
-		flipXCheckbox = new PsychUICheckBox(10, confirmInputText.y + 30, "Flip X", 100);
+		flipXCheckbox = new PsychUICheckBox(10, danceRightIndicesInputText.y + 30, "Flip X", 100);
 		flipXCheckbox.onClick = function()
 		{
 			grpWeekCharacters.members[characterTypeRadio.checked].flipX = flipXCheckbox.checked;
@@ -134,7 +143,7 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 			characterFile.antialiasing = antialiasingCheckbox.checked;
 		};
 
-		var reloadImageButton:PsychUIButton = new PsychUIButton(140, confirmInputText.y + 30, "Reload Char", function() {
+		var reloadImageButton:PsychUIButton = new PsychUIButton(140, flipXCheckbox.y, "Reload Char", function() {
 			reloadSelectedCharacter();
 		});
 		
@@ -144,6 +153,8 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 		tab_group.add(new FlxText(10, imageInputText.y - 18, 0, 'Image file name:'));
 		tab_group.add(new FlxText(10, idleInputText.y - 18, 0, 'Idle animation on the .XML:'));
 		tab_group.add(new FlxText(scaleStepper.x, scaleStepper.y - 18, 0, 'Scale:'));
+		tab_group.add(new FlxText(10, danceLeftIndicesInputText.y - 18, 0, 'danceLeft Indices (e.g. 0-14):'));
+		tab_group.add(new FlxText(10, danceRightIndicesInputText.y - 18, 0, 'danceRight Indices (e.g. 15-29):'));
 		tab_group.add(flipXCheckbox);
 		tab_group.add(antialiasingCheckbox);
 		tab_group.add(reloadImageButton);
@@ -151,6 +162,8 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 		tab_group.add(imageInputText);
 		tab_group.add(idleInputText);
 		tab_group.add(confirmInputText);
+		tab_group.add(danceLeftIndicesInputText);
+		tab_group.add(danceRightIndicesInputText);
 		tab_group.add(scaleStepper);
 	}
 
@@ -168,14 +181,7 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 		var char:MenuCharacter = grpWeekCharacters.members[characterTypeRadio.checked];
 
 		char.alpha = 1;
-		char.frames = Paths.getSparrowAtlas('menucharacters/' + characterFile.image);
-		char.animation.addByPrefix('idle', characterFile.idle_anim, 24);
-		if(characterTypeRadio.checked == 1) char.animation.addByPrefix('confirm', characterFile.confirm_anim, 24, false);
-		char.flipX = (characterFile.flipX == true);
-
-		char.scale.set(characterFile.scale, characterFile.scale);
-		char.updateHitbox();
-		char.animation.play('idle');
+		char.loadCharacterFile(characterFile);
 		updateOffset();
 		
 		#if DISCORD_ALLOWED
@@ -198,6 +204,14 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 			} else if(sender == confirmInputText) {
 				characterFile.confirm_anim = confirmInputText.text;
 				unsavedProgress = true;
+			} else if(sender == danceLeftIndicesInputText || sender == danceRightIndicesInputText) {
+				var input:PsychUIInputText = cast sender;
+				var field:String = sender == danceLeftIndicesInputText ? 'dance_left' : 'dance_right';
+				var indices:Array<Int> = parseDanceIndices(input.text);
+				if(indices.length > 0) Reflect.setField(characterFile, field, indices);
+				else Reflect.deleteField(characterFile, field);
+				reloadSelectedCharacter();
+				unsavedProgress = true;
 			}
 		} else if(id == PsychUINumericStepper.CHANGE_EVENT && (sender is PsychUINumericStepper)) {
 			if (sender == scaleStepper) {
@@ -209,6 +223,8 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 	}
 
 	override function update(elapsed:Float) {
+		if(FlxG.sound.music != null) Conductor.songPosition = FlxG.sound.music.time;
+
 		if(PsychUIInputText.focusOn == null)
 		{
 			ClientPrefs.toggleVolumeKeys(true);
@@ -249,9 +265,16 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 
 		var char:MenuCharacter = grpWeekCharacters.members[1];
 		if(char.animation.curAnim != null && char.animation.curAnim.name == 'confirm' && char.animation.curAnim.finished)
-			char.animation.play('idle', true);
+			char.dance();
 
 		super.update(elapsed);
+	}
+
+	override function beatHit()
+	{
+		super.beatHit();
+		for(char in grpWeekCharacters.members)
+			if(char != null) char.beatHit(curBeat);
 	}
 
 	function updateOffset()
@@ -286,15 +309,17 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 			var rawJson:String = File.getContent(fullPath);
 			if(rawJson != null) {
 				var loadedChar:MenuCharacterFile = cast Json.parse(rawJson);
-				if(loadedChar.idle_anim != null && loadedChar.confirm_anim != null) //Make sure it's really a character
+				if(loadedChar.image != null && loadedChar.idle_anim != null) // Confirm animation is optional.
 				{
 					var cutName:String = _file.name.substr(0, _file.name.length - 5);
 					trace("Successfully loaded file: " + cutName);
 					characterFile = loadedChar;
 					reloadSelectedCharacter();
 					imageInputText.text = characterFile.image;
-					idleInputText.text = characterFile.image;
-					confirmInputText.text = characterFile.image;
+					idleInputText.text = characterFile.idle_anim;
+					confirmInputText.text = characterFile.confirm_anim ?? '';
+					danceLeftIndicesInputText.text = characterFile.dance_left != null ? characterFile.dance_left.join(', ') : '';
+					danceRightIndicesInputText.text = characterFile.dance_right != null ? characterFile.dance_right.join(', ') : '';
 					scaleStepper.value = characterFile.scale;
 					updateOffset();
 					_file = null;
@@ -332,8 +357,36 @@ class MenuCharacterEditorState extends MusicBeatState implements PsychUIEventHan
 		trace("Problem loading file");
 	}
 
+	static function parseDanceIndices(text:String):Array<Int>
+	{
+		var indices:Array<Int> = [];
+		if(text == null || text.trim().length == 0) return indices;
+		var pattern = ~/^(\d+)\s*(?:-\s*(\d+))?$/;
+		for(part in text.split(','))
+		{
+			if(!pattern.match(part.trim())) continue;
+			var start = Std.parseInt(pattern.matched(1));
+			var end = pattern.matched(2) != null ? Std.parseInt(pattern.matched(2)) : start;
+			if(start == null || end == null || start < 0 || end < 0) continue;
+			if(end < start) end = start;
+			for(index in start...end + 1) indices.push(index);
+		}
+		return indices;
+	}
+
+	static function prepareCharacterForSave(charFile:MenuCharacterFile):MenuCharacterFile
+	{
+		var result:MenuCharacterFile = Reflect.copy(charFile);
+		for(field in ['dance_left', 'dance_right'])
+		{
+			var indices:Array<Int> = Reflect.field(result, field);
+			if(indices == null || indices.length == 0) Reflect.deleteField(result, field);
+		}
+		return result;
+	}
+
 	function saveCharacter() {
-		var data:String = PsychJsonPrinter.print(characterFile, ['position']);
+		var data:String = PsychJsonPrinter.print(prepareCharacterForSave(characterFile), ['position', 'dance_left', 'dance_right']);
 		if (data.length > 0)
 		{
 			var splittedImage:Array<String> = imageInputText.text.trim().split('_');

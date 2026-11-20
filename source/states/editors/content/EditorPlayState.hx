@@ -5,6 +5,7 @@ import backend.Rating;
 
 import objects.Note;
 import objects.NoteSplash;
+import objects.NoteSplash.NoteHoldCover;
 import objects.StrumNote;
 
 import flixel.util.FlxSort;
@@ -43,6 +44,7 @@ class EditorPlayState extends MusicBeatSubstate
 	var strumLineNotes:FlxTypedGroup<StrumNote>;
 	var opponentStrums:FlxTypedGroup<StrumNote>;
 	var playerStrums:FlxTypedGroup<StrumNote>;
+	var grpNoteHoldCovers:FlxTypedGroup<NoteHoldCover>;
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
 	
 	var combo:Int = 0;
@@ -114,18 +116,22 @@ class EditorPlayState extends MusicBeatSubstate
 		add(comboGroup);
 		strumLineNotes = new FlxTypedGroup<StrumNote>();
 		add(strumLineNotes);
-		grpNoteSplashes = new FlxTypedGroup<NoteSplash>();
-		add(grpNoteSplashes);
-		
-		var splash:NoteSplash = new NoteSplash();
-		grpNoteSplashes.add(splash);
-		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
-
 		opponentStrums = new FlxTypedGroup<StrumNote>();
 		playerStrums = new FlxTypedGroup<StrumNote>();
 		
 		generateStaticArrows(0);
 		generateStaticArrows(1);
+		generateSong();
+		_noteList = null;
+
+		grpNoteHoldCovers = new FlxTypedGroup<NoteHoldCover>();
+		add(grpNoteHoldCovers);
+		Paths.getSparrowAtlas(NoteHoldCover.getTexture(PlayState.isPixelStage));
+		grpNoteSplashes = new FlxTypedGroup<NoteSplash>();
+		add(grpNoteSplashes);
+		var splash:NoteSplash = new NoteSplash();
+		grpNoteSplashes.add(splash);
+		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
 		/***************/
 		
 		scoreTxt = new FlxText(10, FlxG.height - 50, FlxG.width - 20, "", 20);
@@ -148,9 +154,6 @@ class EditorPlayState extends MusicBeatSubstate
 		add(tipText);
 		FlxG.mouse.visible = false;
 		
-		generateSong();
-		_noteList = null;
-
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_UP, onKeyRelease);
 		
@@ -242,6 +245,12 @@ class EditorPlayState extends MusicBeatSubstate
 			});
 		}
 		
+		grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
+		{
+			var note = cover.note;
+			cover.advance(Conductor.songPosition, !note.mustPress || controls.pressed(keysArray[note.noteData]));
+		});
+
 		var time:Float = CoolUtil.floorDecimal((Conductor.songPosition - ClientPrefs.data.noteOffset) / 1000, 1);
 		var songLen:Float = CoolUtil.floorDecimal(songLength / 1000, 1);
 		dataTxt.text = 'Time: $time / $songLen' +
@@ -496,6 +505,7 @@ class EditorPlayState extends MusicBeatSubstate
 
 	public function endSong()
 	{
+		grpNoteHoldCovers.forEachAlive(cover -> cover.kill());
 		notes.forEachAlive(function(note:Note) invalidateNote(note));
 		for (note in unspawnNotes)
 			if(note != null) invalidateNote(note);
@@ -803,6 +813,7 @@ class EditorPlayState extends MusicBeatSubstate
 			strum.resetAnim = Conductor.stepCrochet * 1.25 / 1000 / playbackRate;
 		}
 		note.hitByOpponent = true;
+		NoteHoldCover.spawn(grpNoteHoldCovers, strum, note);
 
 		if (!note.isSustainNote)
 			invalidateNote(note);
@@ -835,6 +846,7 @@ class EditorPlayState extends MusicBeatSubstate
 
 		var spr:StrumNote = playerStrums.members[note.noteData];
 		if(spr != null) spr.playAnim('confirm', true);
+		NoteHoldCover.spawn(grpNoteHoldCovers, spr, note);
 		vocals.volume = audioSettings.playerVolume;
 
 		if (!note.isSustainNote)
@@ -842,6 +854,10 @@ class EditorPlayState extends MusicBeatSubstate
 	}
 	
 	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
+		grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
+		{
+			if(cover.note == daNote || cover.note == daNote.parent) cover.kill();
+		});
 		//Dupe note remove
 		notes.forEachAlive(function(note:Note) {
 			if (daNote != note && daNote.mustPress && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1)

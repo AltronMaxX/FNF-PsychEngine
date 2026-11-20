@@ -3327,15 +3327,8 @@ class PlayState extends MusicBeatState
 
 	public function spawnNoteHoldCover(note:Note)
 	{
-		if (note.isSustainNote || note.sustainLength <= 0 || note.hitCausesMiss || note.blockHit) return;
 		var arrow:StrumNote = (note.mustPress ? playerStrums : opponentStrums).members[note.noteData];
-		if (arrow == null) return;
-		grpNoteHoldCovers.forEachAlive(function(cover:NoteHoldCover)
-		{
-			if (cover.babyArrow == arrow && !cover.ending) cover.kill();
-		});
-		var cover:NoteHoldCover = grpNoteHoldCovers.recycle(NoteHoldCover);
-		cover.start(arrow, note);
+		NoteHoldCover.spawn(grpNoteHoldCovers, arrow, note);
 	}
 
 	public function invalidateNote(note:Note):Void {

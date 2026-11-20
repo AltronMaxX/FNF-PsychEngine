@@ -20,5 +20,6 @@
 
 	"hideStoryMode": false,
 	"hideFreeplay": false,
+	"freeplayCharacter": "pico",
 	"difficulties": "Easy, Normal, Hard"
 }

@@ -45,7 +45,7 @@ class NoteTypesConfig
 		return parsed;
 	}
 
-	public static function applyNoteTypeData(note:Note, name:String)
+	public static function applyNoteTypeData(note:Note, name:String, paletteOnly:Bool = false)
 	{
 		var data:Array<NoteTypeProperty> = loadNoteTypeData(name);
 		if(data == null || data.length < 1) return;
@@ -54,6 +54,7 @@ class NoteTypesConfig
 		{
 			var obj:Dynamic = note;
 			var split:Array<String> = line.property;
+			if (paletteOnly && split[0] != 'rgbShader' && split[0] != 'shader') continue;
 			try
 			{
 				if(split.length <= 1)
@@ -64,6 +65,18 @@ class NoteTypesConfig
 
 				switch(split[0]) // special cases
 				{
+					case 'rgbShader':
+						if (split[1] == 'parent' && split.length == 3 && ['r', 'g', 'b', 'mult'].contains(split[2]))
+						{
+							Reflect.setProperty(note.rgbShader, split[2], line.value);
+							continue;
+						}
+						// A type can lock the reference or write through its parent, bypassing copy-on-write.
+						if ((split[1] == 'allowNew' && line.value == false) || split[1] == 'parent')
+							@:privateAccess note.rgbShader.cloneOriginal();
+					case 'shader':
+						if (note.shader != null && note.shader == note.rgbShader.parent.shader)
+							@:privateAccess note.rgbShader.cloneOriginal();
 					case 'extraData': 
 						note.extraData.set(split[1], line.value);
 						continue;

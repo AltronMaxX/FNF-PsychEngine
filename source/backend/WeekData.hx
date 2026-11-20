@@ -193,13 +193,15 @@ class WeekData {
 		weeksList = [];
 		weeksLoaded.clear();
 		#if MODS_ALLOWED
-		var directories:Array<String> = [Paths.mods(), Paths.getSharedPath()];
+		var directories:Array<String> = [Paths.mods()];
+		// Filter by source directory: weeks in the root mods folder also have an empty folder field.
+		if(!ClientPrefs.data.hideMainWeeks) directories.push(Paths.getSharedPath());
 		var originalLength:Int = directories.length;
 
 		for (mod in Mods.parseList().enabled)
 			directories.push(Paths.mods(mod + '/'));
 		#else
-		var directories:Array<String> = [Paths.getSharedPath()];
+		var directories:Array<String> = ClientPrefs.data.hideMainWeeks ? [] : [Paths.getSharedPath()];
 		var originalLength:Int = directories.length;
 		#end
 

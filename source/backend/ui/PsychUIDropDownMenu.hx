@@ -185,7 +185,7 @@ class PsychUIDropDownMenu extends PsychUIInputText
 		if(broadcastDropDownEvent) PsychUIEventHandler.event(CLICK_EVENT, this);
 	}
 
-	function addOption(option:String)
+	public function addOption(option:String)
 	{
 		@:bypassAccessor list.push(option);
 		var curID:Int = list.length - 1;
@@ -241,7 +241,7 @@ class PsychUIDropDownItem extends FlxSpriteGroup
 		bg.updateHitbox();
 		add(bg);
 
-		text = new FlxText(0, 0, width, 8);
+		text = new PsychUIText(0, 0, width);
 		text.color = FlxColor.BLACK;
 		add(text);
 	}

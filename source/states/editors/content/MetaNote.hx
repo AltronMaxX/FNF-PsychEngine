@@ -1,5 +1,6 @@
 package states.editors.content;
 
+import backend.NoteTypesConfig;
 import objects.Note;
 import shaders.RGBPalette;
 import flixel.util.FlxDestroyUtil;
@@ -12,6 +13,10 @@ class MetaNote extends Note
 	public var sustainSprite:FlxSprite;
 	public var chartY:Float = 0;
 	public var chartNoteData:Int = 0;
+	public var selectionBrightness:Float = 1;
+	public var gridAlpha:Float = 1;
+	var lanePalette:RGBPalette;
+	var typeUsesRGB:Bool;
 
 	public function new(time:Float, data:Int, songData:Array<Dynamic>)
 	{
@@ -21,22 +26,73 @@ class MetaNote extends Note
 		this.chartNoteData = data;
 	}
 
+	public function applyChartNoteType(type:String):Void
+	{
+		lanePalette = rgbShader.parent;
+		rgbShader.enabled = true;
+		noteType = type;
+		// Remember the type's request even if the song currently disables RGB.
+		typeUsesRGB = rgbShader.enabled;
+		if (usesDefaultColorsImage && rgbShader.parent != lanePalette) reloadChartSkin();
+		if (usesDefaultColorsImage) rgbShader.textureAllowsRGB = false;
+		updateRGB();
+	}
+
+	public function updateRGB():Void
+		rgbShader.enabled = typeUsesRGB && PlayState.SONG.disableNoteRGB != true;
+
+	function reloadChartSkin():Void
+	{
+		var allowNew = rgbShader.allowNew;
+		rgbShader.allowNew = allowNew && rgbShader.parent == lanePalette;
+		antialiasing = ClientPrefs.data.antialiasing;
+		reloadNote(texture);
+		rgbShader.allowNew = allowNew;
+	}
+
 	public function changeNoteData(v:Int)
 	{
 		this.chartNoteData = v; //despite being so arbitrary its sadly needed to fix a bug on moving notes
 		this.songData[1] = v;
 		this.noteData = v % ChartingState.GRID_COLUMNS_PER_PLAYER;
 		this.mustPress = (v < ChartingState.GRID_COLUMNS_PER_PLAYER);
-		
-		if(!PlayState.isPixelStage)
-			loadNoteAnims();
-		else
-			loadPixelNoteAnims();
+		refreshAppearance(true);
+	}
 
-		if(Note.globalRgbShaders.contains(rgbShader.parent)) //Is using a default shader
-			rgbShader = new RGBShaderReference(this, Note.initializeGlobalRGBShader(noteStyle), rgbShader.enabled);
+	public function refreshAppearance(laneChanged:Bool = false):Void
+	{
+		var palette = Note.initializeGlobalRGBShader(noteStyle);
+		if (lanePalette != palette)
+		{
+			var previous = rgbShader;
+			var usedLaneColors = previous.allowNew && previous.parent == lanePalette;
+			lanePalette = palette;
+			rgbShader = new RGBShaderReference(this, palette);
+			if (noteType == 'Hurt Note')
+			{
+				rgbShader.r = previous.parent.r;
+				rgbShader.g = previous.parent.g;
+				rgbShader.b = previous.parent.b;
+			}
+			if (noteType != null && noteType.length > 1)
+				NoteTypesConfig.applyNoteTypeData(this, noteType, true);
 
-		animation.play(animColor + 'Scroll');
+			var typeAllowsRGB = rgbShader.textureAllowsRGB;
+			if (!laneChanged || usedLaneColors != (rgbShader.allowNew && rgbShader.parent == lanePalette))
+				reloadChartSkin();
+			else if (PlayState.isPixelStage) loadPixelNoteAnims();
+			else loadNoteAnims();
+
+			rgbShader.textureAllowsRGB = typeAllowsRGB && !usesDefaultColorsImage;
+			animation.play(animColor + 'Scroll');
+			fitToGrid();
+			y = chartY + (ChartingState.GRID_SIZE - height) / 2;
+		}
+		updateRGB();
+	}
+
+	public function fitToGrid():Void
+	{
 		updateHitbox();
 		if(width > height)
 			setGraphicSize(ChartingState.GRID_SIZE);
@@ -114,16 +170,33 @@ class MetaNote extends Note
 		{
 			sustainSprite.x = this.x + this.width/2 - sustainSprite.width/2;
 			sustainSprite.y = this.y + this.height/2;
-			sustainSprite.alpha = this.alpha;
+			sustainSprite.alpha = alpha * gridAlpha;
 			sustainSprite.draw();
 		}
-		super.draw();
+		if (selectionBrightness == 1 && gridAlpha == 1) super.draw();
+		else
+		{
+			var tint = colorTransform;
+			var red = tint.redMultiplier;
+			var green = tint.greenMultiplier;
+			var blue = tint.blueMultiplier;
+			var opacity = tint.alphaMultiplier;
+			tint.redMultiplier *= selectionBrightness;
+			tint.greenMultiplier *= selectionBrightness;
+			tint.blueMultiplier *= selectionBrightness;
+			tint.alphaMultiplier *= gridAlpha;
+			super.draw();
+			tint.redMultiplier = red;
+			tint.greenMultiplier = green;
+			tint.blueMultiplier = blue;
+			tint.alphaMultiplier = opacity;
+		}
 
 		if(_noteTypeText != null && _noteTypeText.exists && _noteTypeText.visible)
 		{
 			_noteTypeText.x = this.x + this.width/2 - _noteTypeText.width/2;
 			_noteTypeText.y = this.y + this.height/2 - _noteTypeText.height/2;
-			_noteTypeText.alpha = this.alpha;
+			_noteTypeText.alpha = alpha * gridAlpha;
 			_noteTypeText.draw();
 		}
 	}
@@ -137,7 +210,7 @@ class MetaNote extends Note
 
 class EventMetaNote extends MetaNote
 {
-	public var eventText:FlxText;
+	public var eventText:PsychUIText;
 	public function new(time:Float, eventData:Dynamic)
 	{
 		super(time, -1, eventData);
@@ -149,8 +222,8 @@ class EventMetaNote extends MetaNote
 		setGraphicSize(ChartingState.GRID_SIZE);
 		updateHitbox();
 
-		eventText = new FlxText(0, 0, 400, '', 12);
-		eventText.setFormat(Paths.font('vcr.ttf'), 12, FlxColor.WHITE, RIGHT);
+		eventText = new PsychUIText(0, 0, 400, '', 12, Paths.font('vcr.ttf'));
+		eventText.alignment = RIGHT;
 		eventText.scrollFactor.x = 0;
 		updateEventText();
 	}
@@ -180,11 +253,22 @@ class EventMetaNote extends MetaNote
 	public function updateEventText()
 	{
 		eventText.wordWrap = false;
-		eventText.text = ChartingEventText.compact(events, Math.max(0, eventText.fieldWidth - 4), function(value:String)
+		var width = Math.max(0, eventText.fieldWidth - 4);
+		function measure(value:String):Float
 		{
 			eventText.textField.text = value;
 			return eventText.textField.textWidth;
-		});
+		}
+		eventText.useFontFor('');
+		var label = ChartingEventText.compact(events, width, measure);
+		if(eventText.useFontFor(label))
+		{
+			label = ChartingEventText.compact(events, width, measure);
+			// The wider face can push the only missing glyph past the ellipsis.
+			if(eventText.useFontFor(label))
+				label = [for(line in label.split('\n')) ChartingEventText.ellipsize(line, width, measure)].join('\n');
+		}
+		eventText.text = label;
 		eventText.calcFrame(true);
 	}
 

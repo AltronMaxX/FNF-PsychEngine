@@ -8,6 +8,9 @@ typedef MenuCharacterFile = {
 	var scale:Float;
 	var position:Array<Int>;
 	var idle_anim:String;
+	// Frame numbers from idle_anim, in playback order, for alternating beat dances.
+	@:optional var dance_left:Array<Int>;
+	@:optional var dance_right:Array<Int>;
 	var confirm_anim:String;
 	var flipX:Bool;
 	var antialiasing:Null<Bool>;
@@ -17,6 +20,9 @@ class MenuCharacter extends FlxSprite
 {
 	public var character:String;
 	public var hasConfirmAnimation:Bool = false;
+	public var danceIdle(default, null):Bool = false;
+	public var danceEveryNumBeats(default, null):Int = 2;
+	var danced:Bool = false;
 	private static var DEFAULT_CHARACTER:String = 'bf';
 
 	public function new(x:Float, character:String = 'bf')
@@ -33,7 +39,6 @@ class MenuCharacter extends FlxSprite
 		this.character = character;
 		visible = true;
 
-		var dontPlayAnim:Bool = false;
 		scale.set(1, 1);
 		updateHitbox();
 		
@@ -44,7 +49,6 @@ class MenuCharacter extends FlxSprite
 		switch(character) {
 			case '':
 				visible = false;
-				dontPlayAnim = true;
 			default:
 				var characterPath:String = 'images/menucharacters/' + character + '.json';
 
@@ -74,27 +78,61 @@ class MenuCharacter extends FlxSprite
 					trace('Error loading menu character file of "$character": $e');
 				}
 
-				frames = Paths.getSparrowAtlas('menucharacters/' + charFile.image);
-				animation.addByPrefix('idle', charFile.idle_anim, 24);
+				loadCharacterFile(charFile);
+		}
+	}
 
-				var confirmAnim:String = charFile.confirm_anim;
-				if(confirmAnim != null && confirmAnim.length > 0 && confirmAnim != charFile.idle_anim)
-				{
-					animation.addByPrefix('confirm', confirmAnim, 24, false);
-					if (animation.getByName('confirm') != null) //check for invalid animation
-						hasConfirmAnimation = true;
-				}
-				flipX = (charFile.flipX == true);
+	public function loadCharacterFile(charFile:MenuCharacterFile)
+	{
+		// A new definition may reuse the same atlas; clear the previous dance/confirm animations too.
+		animation.destroyAnimations();
+		frames = Paths.getSparrowAtlas('menucharacters/' + charFile.image);
+		animation.addByPrefix('idle', charFile.idle_anim, 24, false);
+		danced = false;
+		danceIdle = false;
+		hasConfirmAnimation = false;
 
-				if(charFile.scale != 1)
-				{
-					scale.set(charFile.scale, charFile.scale);
-					updateHitbox();
-				}
-				offset.set(charFile.position[0], charFile.position[1]);
-				animation.play('idle');
+		if(charFile.dance_left != null && charFile.dance_left.length > 0
+			&& charFile.dance_right != null && charFile.dance_right.length > 0)
+		{
+			animation.addByIndices('danceLeft', charFile.idle_anim, charFile.dance_left, '', 24, false);
+			animation.addByIndices('danceRight', charFile.idle_anim, charFile.dance_right, '', 24, false);
+			danceIdle = animation.getByName('danceLeft') != null && animation.getByName('danceRight') != null;
+		}
+		danceEveryNumBeats = danceIdle ? 1 : 2;
 
-				antialiasing = (charFile.antialiasing != false && ClientPrefs.data.antialiasing);
+		var confirmAnim:String = charFile.confirm_anim;
+		if(confirmAnim != null && confirmAnim.length > 0 && confirmAnim != charFile.idle_anim)
+		{
+			animation.addByPrefix('confirm', confirmAnim, 24, false);
+			hasConfirmAnimation = animation.getByName('confirm') != null;
+		}
+
+		flipX = (charFile.flipX == true);
+		scale.set(charFile.scale, charFile.scale);
+		updateHitbox();
+		offset.set(charFile.position[0], charFile.position[1]);
+		antialiasing = (charFile.antialiasing != false && ClientPrefs.data.antialiasing);
+		dance();
+	}
+
+	public function dance()
+	{
+		if(danceIdle)
+		{
+			danced = !danced;
+			animation.play(danced ? 'danceRight' : 'danceLeft', true);
+		}
+		else animation.play('idle', true);
+	}
+
+	public function beatHit(beat:Int)
+	{
+		if(!visible || beat % danceEveryNumBeats != 0 || animation.curAnim == null) return;
+		switch(animation.curAnim.name)
+		{
+			case 'idle', 'danceLeft', 'danceRight': dance();
+			default: // Do not interrupt confirmation or other special animations.
 		}
 	}
 }

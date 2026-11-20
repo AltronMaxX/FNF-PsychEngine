@@ -1,19 +1,9 @@
 package backend.ui;
 
-import flixel.FlxObject;
 import flixel.input.keyboard.FlxKey;
-import flixel.util.FlxDestroyUtil;
-import flash.events.KeyboardEvent;
+import openfl.events.KeyboardEvent;
+import openfl.events.TextEvent;
 import lime.system.Clipboard;
-
-enum abstract AccentCode(Int) from Int from UInt to Int to UInt
-{
-	var NONE = -1;
-	var GRAVE = 0;
-	var ACUTE = 1;
-	var CIRCUMFLEX = 2;
-	var TILDE = 3;
-}
 
 enum abstract FilterMode(Int) from Int from UInt to Int to UInt
 {
@@ -36,8 +26,7 @@ class PsychUIInputText extends FlxSpriteGroup
 {
 	public static final CHANGE_EVENT = "inputtext_change";
 
-	static final KEY_TILDE = 126;
-	static final KEY_ACUTE = 180;
+	static var previousTextInputEnabled:Bool;
 
 	public static var focusOn(default, set):PsychUIInputText = null;
 
@@ -47,13 +36,17 @@ class PsychUIInputText extends FlxSpriteGroup
 	public var selection:FlxSprite;
 	public var textObj:FlxText;
 	public var caret:FlxSprite;
+	var originalLineHeight:Float;
 	public var onChange:String->String->Void;
 
 	public var fieldWidth(default, set):Int = 0;
 	public var maxLength(default, set):Int = 0;
 	public var passwordMask(default, set):Bool = false;
-	public var text(default, set):String = null;
-	
+	public var text(default, set):String = '';
+	// OpenFL uses code point indices for text selection and glyph bounds.
+	var characters(get, never):UnicodeString;
+	inline function get_characters():UnicodeString return text;
+
 	public var forceCase(default, set):CaseMode = ALL_CASES;
 	public var filterMode(default, set):FilterMode = NO_FILTER;
 	public var customFilterPattern(default, set):EReg;
@@ -66,7 +59,8 @@ class PsychUIInputText extends FlxSpriteGroup
 		this.bg = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
 		this.behindText = new FlxSprite(1, 1).makeGraphic(1, 1, FlxColor.WHITE);
 		this.selection = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
-		this.textObj = new FlxText(1, 1, Math.max(1, wid - 2), '', size);
+		this.textObj = new PsychUIText(1, 1, Math.max(1, wid - 2), '', size);
+		originalLineHeight = this.textObj.textField.textHeight;
 		this.caret = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
 		add(this.bg);
 		add(this.behindText);
@@ -84,295 +78,148 @@ class PsychUIInputText extends FlxSpriteGroup
 		setGraphicSize(wid + 2, this.textObj.height + 2);
 		updateHitbox();
 		this.text = text;
-
-		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
 	}
-	
-	public var selectIndex:Int = -1;
-	public var caretIndex(default, set):Int = -1;
-	var _caretTime:Float = 0;
 
-	var _nextAccent:AccentCode = NONE;
+	public var selectIndex:Int = -1;
+	public var caretIndex(default, set):Int = 0;
 	public var inInsertMode:Bool = false;
+	public var broadcastInputTextEvent:Bool = true;
+	var _caretTime:Float = 0;
+	var dragAnchor:Int = -1;
+
+	inline function selectionStart():Int
+		return selectIndex < 0 || caretIndex < selectIndex ? caretIndex : selectIndex;
+
+	inline function selectionEnd():Int
+		return selectIndex > caretIndex ? selectIndex : caretIndex;
+
+	function onTextInput(e:TextEvent)
+	{
+		// Keyboard shortcuts and Enter are handled separately from layout/IME text.
+		var value = e.text;
+		// Browser TEXT_INPUT also carries clipboard text, including line breaks.
+		#if !html5
+		value = ~/[\x00-\x1f\x7f]/g.replace(value, '');
+		#end
+		insertText(value, inInsertMode);
+	}
+
 	function onKeyDown(e:KeyboardEvent)
 	{
-		if(focusOn != this) return;
-
-		var keyCode:Int = e.keyCode;
-		var charCode:Int = e.charCode;
-		var flxKey:FlxKey = cast keyCode;
-
-		// Fix missing cedilla
-		switch(keyCode)
+		var key:FlxKey = cast e.keyCode;
+		var shortcut = e.ctrlKey && !e.altKey;
+		#if lime_cffi
+		// SDL may send a non-Latin layout character for a physical shortcut key.
+		if(shortcut && e.keyCode > 0xff)
 		{
-			case 231: //ç and Ç
-				charCode = e.shiftKey ? 0xC7 : 0xE7;
-		}
-
-		// Control key actions
-		if(e.controlKey)
-		{
-			switch(flxKey)
+			switch(lime.ui.ScanCode.fromKeyCode(cast e.keyCode))
 			{
-				case A: //select all text
-					selectIndex = Std.int(Math.min(0, text.length - 1));
-					caretIndex = text.length;
-
-				case X, C: //cut/copy selected text to clipboard
-					if(caretIndex >= 0 && selectIndex != 0 && caretIndex != selectIndex)
-					{
-						Clipboard.text = text.substring(caretIndex, selectIndex);
-						if(flxKey == X)
-							deleteSelection();
-					}
-
-				case V: //paste from clipboard
-					if(Clipboard.text == null) return;
-
-					if(selectIndex > -1 && selectIndex != caretIndex)
-						deleteSelection();
-
-					var lastText = text;
-					text = text.substring(0, caretIndex) + Clipboard.text + text.substring(caretIndex);
-					caretIndex += Clipboard.text.length;
-					if(onChange != null) onChange(lastText, text);
-					if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
-
-				case BACKSPACE:
-					if(selectIndex < 0 || selectIndex == caretIndex)
-					{
-						var lastText = text;
-						var deletedText:String = text.substr(0, Std.int(Math.max(0, caretIndex-1)));
-						var space:Int = deletedText.lastIndexOf(' ');
-						if(space > -1 && space != caretIndex-1)
-						{
-							var start:String = deletedText.substring(0, space+1);
-							var end:String = text.substring(caretIndex);
-							caretIndex -= Std.int(Math.max(0, text.length - (start.length + end.length)));
-							text = start + end;
-						}
-						else
-						{
-							text = text.substring(caretIndex);
-							caretIndex = 0;
-						}
-						selectIndex = -1;
-						if(onChange != null) onChange(lastText, text);
-						if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
-					}
-					else deleteSelection();
-
-				case DELETE:
-					if(selectIndex < 0 || selectIndex == caretIndex)
-					{
-						// This is| a test
-						// This is test
-						var deletedText:String = text.substring(caretIndex);
-						var spc:Int = 0;
-						var space:Int = deletedText.indexOf(' ');
-						while(deletedText.substr(spc, 1) == ' ')
-						{
-							spc++;
-							space = deletedText.substr(spc).indexOf(' ');
-						}
-
-						var lastText = text;
-						if(space > -1)
-						{
-							text = text.substr(0, caretIndex) + text.substring(caretIndex + space + spc);
-						}
-						else text = text.substr(0, caretIndex);
-						if(onChange != null) onChange(lastText, text);
-						if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
-					}
-					else deleteSelection();
-
-				case LEFT:
-					if(caretIndex > 0)
-					{
-						do
-						{
-							caretIndex--;
-							var a:String = text.substr(caretIndex-1, 1);
-							var b:String = text.substr(caretIndex, 1);
-							//trace(a, b);
-							if(a == ' ' && b != ' ') break;
-						}
-						while(caretIndex > 0);
-					}
-
-				case RIGHT:
-					if(caretIndex < text.length)
-					{
-						do
-						{
-							caretIndex++;
-							var a:String = text.substr(caretIndex-1, 1);
-							var b:String = text.substr(caretIndex, 1);
-							//trace(a, b);
-							if(a != ' ' && b == ' ') break;
-						}
-						while(caretIndex < text.length);
-					}
-
+				case A: key = A;
+				case C: key = C;
+				case X: key = X;
+				case V: key = V;
 				default:
 			}
-			updateCaret();
-			return;
 		}
+		#end
 
-		static final ignored:Array<FlxKey> = [SHIFT, CONTROL, ESCAPE];
-		if(ignored.contains(flxKey)) return;
-
-		var lastAccent = _nextAccent;
-		switch(keyCode)
+		var start = selectionStart();
+		var end = selectionEnd();
+		switch(key)
 		{
-			case KEY_TILDE:
-				_nextAccent = !e.shiftKey ? TILDE : CIRCUMFLEX;
-				if(lastAccent == NONE) return;
-			case KEY_ACUTE:
-				_nextAccent = !e.shiftKey ? ACUTE : GRAVE;
-				if(lastAccent == NONE) return;
-			default:
-				lastAccent = NONE;
-		}
+			case A if(shortcut):
+				selectIndex = 0;
+				caretIndex = characters.length;
 
-		//trace(keyCode, charCode, flxKey);
-		switch(flxKey)
+			case X, C if(shortcut):
+				if(start < end)
+				{
+					Clipboard.text = characters.substring(start, end);
+					if(key == X) replaceRange(start, end, '');
+				}
+
+			case V if(shortcut):
+				// Lime delivers browser pastes through TEXT_INPUT.
+				#if !html5
+				insertText(Clipboard.text);
+				#end
+
+			case LEFT, RIGHT, HOME, END:
+				if(!e.shiftKey) selectIndex = -1;
+				else if(selectIndex < 0) selectIndex = caretIndex;
+				caretIndex = switch(key)
+				{
+					case HOME: 0;
+					case END: characters.length;
+					case LEFT: shortcut ? wordBoundary(false) : caretIndex - 1;
+					default: shortcut ? wordBoundary(true) : caretIndex + 1;
+				};
+
+			case BACKSPACE, DELETE:
+				if(start == end)
+				{
+					if(key == BACKSPACE) start = shortcut ? wordBoundary(false) : Std.int(Math.max(0, start - 1));
+					else end = shortcut ? wordBoundary(true) : Std.int(Math.min(characters.length, end + 1));
+				}
+				if(start < end) replaceRange(start, end, '');
+
+			case INSERT: inInsertMode = !inInsertMode;
+			case ESCAPE: focusOn = null;
+			case ENTER: onPressEnter(e);
+			default:
+		}
+	}
+
+	function wordBoundary(right:Bool):Int
+	{
+		var pos = caretIndex;
+		var chars = characters;
+		if(right)
 		{
-			case LEFT: //move caret to left
-				if(!FlxG.keys.pressed.SHIFT) selectIndex = -1;
-				else if(selectIndex == -1) selectIndex = caretIndex;
-				caretIndex = Std.int(Math.max(0, caretIndex - 1));
-
-			case RIGHT: //move caret to right
-				if(!FlxG.keys.pressed.SHIFT) selectIndex = -1;
-				else if(selectIndex == -1) selectIndex = caretIndex;
-				caretIndex = Std.int(Math.min(text.length, caretIndex + 1));
-
-			case HOME: //move caret to the begin
-				if(!FlxG.keys.pressed.SHIFT) selectIndex = -1;
-				else if(selectIndex == -1) selectIndex = caretIndex;
-				caretIndex = 0;
-
-			case END: //move caret to the end
-				if(!FlxG.keys.pressed.SHIFT) selectIndex = -1;
-				else if(selectIndex == -1) selectIndex = caretIndex;
-				caretIndex = text.length;
-
-			case INSERT: //change to insert mode
-				inInsertMode = !inInsertMode;
-
-			case BACKSPACE: //Delete letter to the left of caret
-				if(caretIndex <= 0) return;
-
-				if(selectIndex > -1 && selectIndex != caretIndex)
-					deleteSelection();
-				else
-				{
-					var lastText = text;
-					text = text.substring(0, caretIndex-1) + text.substring(caretIndex);
-					caretIndex--;
-					if(onChange != null) onChange(lastText, text);
-					if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
-				}
-				_nextAccent = NONE;
-
-			case DELETE: //Delete letter to the right of caret
-				if(selectIndex > -1 && selectIndex != caretIndex)
-				{
-					deleteSelection();
-					updateCaret();
-					return;
-				}
-
-				if(caretIndex >= text.length) return;
-
-				var lastText = text;
-				if(caretIndex < 1)
-					text = text.substr(1);
-				else
-					text = text.substring(0, caretIndex) + text.substring(caretIndex+1);
-
-				if(caretIndex >= text.length) caretIndex = text.length;
-				
-				if(onChange != null) onChange(lastText, text);
-				if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
-			
-			case SPACE: //space or last accent pressed
-				if(_nextAccent != NONE) _typeLetter(getAccentCharCode(_nextAccent));
-				else _typeLetter(charCode);
-				_nextAccent = NONE;
-
-			case A, O: //these support all accents
-				var grave:Int = 0x0;
-				var capital:Int = 0x0;
-				switch(flxKey)
-				{
-					case A:
-						grave = 0xC0;
-						capital = 0x41;
-					case O:
-						grave = 0xD2;
-						capital = 0x4f;
-					default:
-				}
-				if(_nextAccent != NONE)
-					charCode += grave - capital + _nextAccent;
-
-				_typeLetter(charCode);
-				_nextAccent = NONE;
-
-			case E, I, U: //these support grave, acute and circumflex
-				var grave:Int = 0x0;
-				var capital:Int = 0x0;
-				switch(flxKey)
-				{
-					case E:
-						grave = 0xC8;
-						capital = 0x45;
-					case I:
-						grave = 0xCC;
-						capital = 0x49;
-					case U:
-						grave = 0xD9;
-						capital = 0x55;
-					default:
-				}
-				if(_nextAccent == GRAVE || _nextAccent == ACUTE || _nextAccent == CIRCUMFLEX) //Supported accents
-					charCode += grave - capital + _nextAccent;
-				else if(_nextAccent == TILDE) //Unsupported accent
-					_typeLetter(getAccentCharCode(_nextAccent));
-
-				_typeLetter(charCode);
-				_nextAccent = NONE;
-
-			case N: //it only supports tilde
-				if(_nextAccent == TILDE)
-					charCode += 0xD1 - 0x4E;
-				else
-					_typeLetter(getAccentCharCode(_nextAccent));
-
-				_typeLetter(charCode);
-				_nextAccent = NONE;
-
-			case ESCAPE:
-				focusOn = null;
-
-			case ENTER:
-				onPressEnter(e);
-
-			default:
-				if(charCode < 1)
-					if((charCode = getAccentCharCode(_nextAccent)) < 1)
-						return;
-
-				if(lastAccent != NONE) _typeLetter(getAccentCharCode(lastAccent));
-				else if(_nextAccent != NONE) _typeLetter(getAccentCharCode(_nextAccent));
-				_typeLetter(charCode);
-				_nextAccent = NONE;
+			var length = chars.length;
+			while(pos < length && chars.charAt(pos) == ' ') pos++;
+			while(pos < length && chars.charAt(pos) != ' ') pos++;
 		}
-		updateCaret();
+		else
+		{
+			while(pos > 0 && chars.charAt(pos - 1) == ' ') pos--;
+			while(pos > 0 && chars.charAt(pos - 1) != ' ') pos--;
+		}
+		return pos;
+	}
+
+	function insertText(value:String, overwrite:Bool = false)
+	{
+		if(value == null || value.length == 0) return;
+		var inserted:UnicodeString = filter(value);
+		var count = inserted.length;
+		if(count == 0) return;
+
+		var start = selectionStart();
+		var end = selectionEnd();
+		var length = characters.length;
+		if(overwrite && start == end) end = Std.int(Math.min(length, start + count));
+		if(maxLength > 0)
+		{
+			var available = maxLength - (length - (end - start));
+			if(available <= 0) return;
+			if(count > available) inserted = inserted.substr(0, available);
+		}
+		replaceRange(start, end, inserted);
+	}
+
+	function replaceRange(start:Int, end:Int, value:UnicodeString)
+	{
+		var old = text;
+		var chars = characters;
+		selectIndex = -1;
+		text = chars.substring(0, start) + value + chars.substring(end);
+		caretIndex = start + value.length;
+		if(text != old)
+		{
+			if(onChange != null) onChange(old, text);
+			if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
+		}
 	}
 
 	public dynamic function onPressEnter(e:KeyboardEvent)
@@ -381,12 +228,34 @@ class PsychUIInputText extends FlxSpriteGroup
 	public var unfocus:Void->Void;
 	public static function set_focusOn(v:PsychUIInputText)
 	{
-		if(focusOn != null && focusOn != v && focusOn.exists)
+		if(focusOn == v) return v;
+		var stage = FlxG.stage;
+		var previous = focusOn;
+		focusOn = v;
+		if(previous != null)
 		{
-			if(focusOn.unfocus != null) focusOn.unfocus();
-			focusOn.resetCaret();
+			stage.removeEventListener(KeyboardEvent.KEY_DOWN, previous.onKeyDown);
+			stage.removeEventListener(TextEvent.TEXT_INPUT, previous.onTextInput);
 		}
-		return (focusOn = v);
+		#if !flash
+		if(previous == null)
+		{
+			previousTextInputEnabled = stage.window.textInputEnabled;
+			stage.window.textInputEnabled = true;
+		}
+		else if(v == null) stage.window.textInputEnabled = previousTextInputEnabled;
+		#end
+		if(v != null)
+		{
+			stage.addEventListener(KeyboardEvent.KEY_DOWN, v.onKeyDown);
+			stage.addEventListener(TextEvent.TEXT_INPUT, v.onTextInput);
+		}
+		if(previous != null && previous.exists)
+		{
+			if(previous.unfocus != null) previous.unfocus();
+			if(previous.exists && focusOn != previous) previous.resetCaret();
+		}
+		return focusOn;
 	}
 
 	override function update(elapsed:Float)
@@ -398,31 +267,19 @@ class PsychUIInputText extends FlxSpriteGroup
 			if(FlxG.mouse.overlaps(behindText, camera))
 			{
 				if(!FlxG.keys.pressed.SHIFT) selectIndex = -1;
-				else if(selectIndex == -1) selectIndex = caretIndex;
+				else if(selectIndex < 0) selectIndex = caretIndex;
 				focusOn = this;
-				caretIndex = 0;
-				var lastBound:Float = 0;
-				var textObjX:Float = textObj.getScreenPosition(camera).x;
-				var mousePosX:Float = FlxG.mouse.getScreenPosition(camera).x;
-				var txtX:Float = textObjX - textObj.textField.scrollH;
-
-				for (i => bound in _boundaries)
-				{
-					if(mousePosX >= txtX + (bound - lastBound)/2)
-					{
-						caretIndex = i+1;
-						txtX += bound - lastBound;
-						lastBound = bound;
-					}
-					else break;
-				}
-				updateCaret();
+				caretIndex = caretAtMouse();
+				dragAnchor = selectIndex < 0 ? caretIndex : selectIndex;
 			}
-			else if(focusOn == this)
-				focusOn = null;
-
-			//trace('changed focus to: ' + this);
+			else if(focusOn == this) focusOn = null;
 		}
+		else if(focusOn == this && dragAnchor >= 0 && FlxG.mouse.pressed && FlxG.mouse.justMoved)
+		{
+			selectIndex = dragAnchor;
+			caretIndex = caretAtMouse();
+		}
+		if(!FlxG.mouse.pressed) dragAnchor = -1;
 
 		if(focusOn == this)
 		{
@@ -439,7 +296,7 @@ class PsychUIInputText extends FlxSpriteGroup
 					}
 					else selection.visible = false;
 				}
-	
+
 				if(caret != null && caret.exists)
 				{
 					if(!drewSelection && _caretTime < 0.5 && caret.x >= textObj.x)
@@ -460,96 +317,72 @@ class PsychUIInputText extends FlxSpriteGroup
 		}
 	}
 
+	function caretAtMouse():Int
+	{
+		var field = textObj.textField;
+		var mouse = FlxG.mouse.getScreenPosition(camera);
+		var pos = textObj.getScreenPosition(camera);
+		var x = mouse.x - pos.x + field.scrollH;
+		mouse.put();
+		pos.put();
+		var low = 0;
+		var high = field.length;
+		while(low < high)
+		{
+			var mid = (low + high) >> 1;
+			var bounds = field.getCharBoundaries(mid);
+			if(bounds != null && x >= bounds.x + bounds.width / 2) low = mid + 1;
+			else high = mid;
+		}
+		return low;
+	}
+
 	public function resetCaret()
 	{
-		selectIndex = -1;
+		dragAnchor = selectIndex = -1;
 		caretIndex = 0;
-		updateCaret();
+	}
+
+	function caretX(index:Int):Float
+	{
+		var field = textObj.textField;
+		var bounds = field.getCharBoundaries(index);
+		var x = bounds != null ? bounds.x : 2 + field.textWidth;
+		return textObj.x + x - field.scrollH;
 	}
 
 	public function updateCaret()
 	{
 		if(textObj == null || !textObj.exists) return;
-
-		var textField = textObj.textField;
-		textField.setSelection(caretIndex, caretIndex);
+		var field = textObj.textField;
+		field.setSelection(caretIndex, caretIndex);
 		_caretTime = 0;
-		if(caret != null && caret.exists)
+		caret.setPosition(caretX(caretIndex), textObj.y + 2);
+		textObj.removeFormat(selectedFormat);
+		if(selectIndex >= 0 && selectIndex != caretIndex)
 		{
-			caret.y = textObj.y + 2;
-			caret.x = textObj.x + 1 - textObj.textField.scrollH;
-			if(caretIndex > 0)
-				caret.x += _boundaries[Std.int(Math.max(0, Math.min(_boundaries.length-1, caretIndex-1)))];
-		}
-		
-		if(selection != null && selection.exists)
-		{
-			selection.y = textObj.y + 2;
-			selection.x = textObj.x + 1 - textObj.textField.scrollH;
-			if(selectIndex > 0)
-				selection.x += _boundaries[Std.int(Math.max(0, Math.min(_boundaries.length-1, selectIndex-1)))];
-
-			selection.scale.y = textField.textHeight;
-			selection.scale.x = caret.x - selection.x;
-			if(selection.scale.x < 0)
-			{
-				selection.scale.x = Math.abs(selection.scale.x);
-				selection.x -= selection.scale.x;
-			}
-
-			if(selection.x < textObj.x)
-			{
-				var diff:Float = textObj.x - selection.x;
-				selection.x += diff;
-				selection.scale.x -= diff;
-			}
-			if(selection.x + selection.scale.x > textObj.x + textObj.width)
-				selection.scale.x += (textObj.x + textObj.width - selection.x - selection.scale.x);
-
+			var start = selectionStart();
+			var end = selectionEnd();
+			var left = FlxMath.bound(caretX(start), textObj.x, textObj.x + field.width);
+			var right = FlxMath.bound(caretX(end), textObj.x, textObj.x + field.width);
+			selection.setPosition(left, textObj.y + 2);
+			selection.scale.set(Math.max(0, right - left), field.textHeight);
 			selection.updateHitbox();
-
-			if(text.length > 0)
-			{
-				textObj.removeFormat(selectedFormat);
-				if(selectIndex != -1 && selectIndex != caretIndex)
-				{
-					textObj.addFormat(selectedFormat, caretIndex < selectIndex ? caretIndex : selectIndex, caretIndex < selectIndex ? selectIndex : caretIndex);
-				}
-			}
+			textObj.addFormat(selectedFormat, start, end);
 		}
-		else if(text.length > 0) textObj.removeFormat(selectedFormat);
-	}
-
-	function deleteSelection()
-	{
-		var lastText:String = text;
-		if(selectIndex > caretIndex)
-		{
-			text = text.substring(0, caretIndex) + text.substring(selectIndex);
-		}
-		else
-		{
-			text = text.substring(0, selectIndex) + text.substring(caretIndex);
-			caretIndex = selectIndex;
-		}
-		selectIndex = -1;
-		if(onChange != null) onChange(lastText, text);
-		if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
 	}
 
 	override public function destroy()
 	{
-		_boundaries = null;
 		if(focusOn == this) focusOn = null;
-		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
 		super.destroy();
 	}
 
 	function set_caretIndex(v:Int)
 	{
-		caretIndex = v;
+		caretIndex = Std.int(FlxMath.bound(v, 0, characters.length));
 		updateCaret();
-		return v;
+		return caretIndex;
 	}
 
 	override public function setGraphicSize(width:Float = 0, height:Float = 0)
@@ -564,7 +397,7 @@ class PsychUIInputText extends FlxSpriteGroup
 			if(caret != null && caret.exists) caret.setGraphicSize(1, textObj.height - 4);
 		}
 	}
-	
+
 	override public function updateHitbox()
 	{
 		super.updateHitbox();
@@ -590,7 +423,7 @@ class PsychUIInputText extends FlxSpriteGroup
 	{
 		var lastText = text;
 		v = Std.int(Math.max(0, v));
-		if(v > 0 && text.length > v) text = text.substr(0, v);
+		if(v > 0 && characters.length > v) text = characters.substr(0, v);
 		if(onChange != null) onChange(lastText, text);
 		if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
 		return (maxLength = v);
@@ -603,77 +436,23 @@ class PsychUIInputText extends FlxSpriteGroup
 		return passwordMask;
 	}
 
-	var _boundaries:Array<Float> = [];
 	function set_text(v:String)
 	{
-		for (i in 0..._boundaries.length) _boundaries.pop();
-		v = filter(v);
-
-		textObj.text = '';
-		if(v != null && v.length > 0)
+		text = filter(v == null ? '' : v);
+		var length = characters.length;
+		var wasEmbedded = textObj.embedded;
+		textObj.text = passwordMask ? ''.lpad('*', length) : text.replace('\r', ' ').replace('\n', ' ');
+		if(textObj.embedded != wasEmbedded)
 		{
-			if(v.length > 1)
-			{
-				for (i in 0...v.length)
-				{
-					var toPrint:String = v.substr(i, 1);
-					if(toPrint == '\n') toPrint = ' ';
-					textObj.textField.appendText(!passwordMask ? toPrint : '*');
-					_boundaries.push(textObj.textField.textWidth);
-				}
-			}
-			else
-			{
-				textObj.text = !passwordMask ? v : '*';
-				_boundaries.push(textObj.textField.textWidth);
-			}
+			var lineHeight = textObj.embedded ? originalLineHeight : textObj.textField.textHeight;
+			textObj.y = behindText.y + Math.floor((behindText.height - lineHeight) / 2) - 2;
+			caret.setGraphicSize(1, lineHeight);
+			caret.updateHitbox();
 		}
-		text = v;
+		selectIndex = Std.int(Math.min(selectIndex, length));
+		@:bypassAccessor caretIndex = Std.int(FlxMath.bound(caretIndex, 0, length));
 		updateCaret();
-		return v;
-	}
-
-	public static function getAccentCharCode(accent:AccentCode)
-	{
-		switch(accent)
-		{
-			case TILDE:
-				return 0x7E;
-			case CIRCUMFLEX:
-				return 0x5E;
-			case ACUTE:
-				return 0xB4;
-			case GRAVE:
-				return 0x60;
-			default:
-				return 0x0;
-		}
-	}
-
-	public var broadcastInputTextEvent:Bool = true;
-	function _typeLetter(charCode:Int)
-	{
-		if(charCode < 1) return;
-		
-		if(selectIndex > -1 && selectIndex != caretIndex)
-			deleteSelection();
-
-		var letter:String = String.fromCharCode(charCode);
-		letter = filter(letter);
-		if(letter.length > 0 && (maxLength == 0 || (text.length + letter.length) <= maxLength))
-		{
-			var lastText = text;
-			//trace('Drawing character: $letter');
-			if(!inInsertMode)
-				text = text.substring(0, caretIndex) + letter + text.substring(caretIndex);
-			else
-				text = text.substring(0, caretIndex) + letter + text.substring(caretIndex+1);
-
-			caretIndex += letter.length;
-			if(onChange != null) onChange(lastText, text);
-			if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
-		}
-		_caretTime = 0;
+		return text;
 	}
 
 	// from FlxInputText
@@ -697,7 +476,7 @@ class PsychUIInputText extends FlxSpriteGroup
 		filterMode = CUSTOM_FILTER;
 		return customFilterPattern;
 	}
-	
+
 	private function filter(text:String):String
 	{
 		switch(forceCase)
@@ -708,10 +487,6 @@ class PsychUIInputText extends FlxSpriteGroup
 				text = text.toLowerCase();
 			default:
 		}
-		if (forceCase == UPPER_CASE)
-			text = text.toUpperCase();
-		else if (forceCase == LOWER_CASE)
-			text = text.toLowerCase();
 
 		if (filterMode != NO_FILTER)
 		{

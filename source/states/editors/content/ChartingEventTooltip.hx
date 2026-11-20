@@ -87,8 +87,8 @@ class ChartingEventTooltip extends FlxSpriteGroup
 
 	function addText(value:String, size:Int, color:FlxColor):Void
 	{
-		var text = new FlxText(0, 0, cardWidth - PADDING * 2 - 8, value, size);
-		text.setFormat(Paths.font('vcr.ttf'), size, color, LEFT);
+		var text = new PsychUIText(0, 0, cardWidth - PADDING * 2 - 8, value, size, Paths.font('vcr.ttf'));
+		text.color = color;
 		text.scrollFactor.set();
 		text.active = false;
 		text.cameras = cameras;

@@ -182,6 +182,12 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		var option:Option = new Option('Hide Main Weeks',
+			'Hides weeks from assets in Story Mode and their songs in Freeplay.\nWeeks from mods remain visible.',
+			'hideMainWeeks',
+			BOOL);
+		addOption(option);
+
 		super();
 		add(notes);
 		add(splashes);

@@ -316,12 +316,11 @@ class StoryMenuState extends MusicBeatState
 	{
 		super.beatHit();
 
-		if(curBeat % 2 != 0 || selectedWeek || movedBack || grpWeekCharacters == null) return;
+		if(selectedWeek || movedBack || grpWeekCharacters == null) return;
 
 		for (char in grpWeekCharacters.members)
 		{
-			if(char != null && char.visible && char.animation.curAnim != null && char.animation.curAnim.name == 'idle')
-				char.animation.play('idle', true);
+			if(char != null) char.beatHit(curBeat);
 		}
 	}
 
@@ -566,8 +565,6 @@ class StoryMenuState extends MusicBeatState
 		for (i in 0...grpWeekCharacters.length) {
 			var char:MenuCharacter = grpWeekCharacters.members[i];
 			char.changeCharacter(weekArray[i]);
-			var idleAnim = char.animation.getByName('idle');
-			if(idleAnim != null) idleAnim.looped = false;
 		}
 
 		var leWeek:WeekData = loadedWeeks[curWeek];

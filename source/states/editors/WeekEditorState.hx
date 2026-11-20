@@ -39,6 +39,9 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 	}
 
 	override function create() {
+		Conductor.bpmChangeMap = [];
+		Conductor.bpm = states.TitleState.musicBPM;
+
 		txtWeekTitle = new FlxText(FlxG.width * 0.7, 10, 0, "", 32);
 		txtWeekTitle.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 		txtWeekTitle.alpha = 0.7;
@@ -464,6 +467,8 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 	
 	override function update(elapsed:Float)
 	{
+		if(FlxG.sound.music != null) Conductor.songPosition = FlxG.sound.music.time;
+
 		if(loadedWeek != null) {
 			weekFile = loadedWeek;
 			loadedWeek = null;
@@ -490,6 +495,13 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 
 		lock.y = weekThing.y;
 		missingFileText.y = weekThing.y + 36;
+	}
+
+	override function beatHit()
+	{
+		super.beatHit();
+		for(char in grpWeekCharacters.members)
+			if(char != null) char.beatHit(curBeat);
 	}
 
 	function recalculateStuffPosition() {

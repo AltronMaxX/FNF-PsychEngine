@@ -25,6 +25,7 @@ typedef NoteSplashConfig = {
 	scale:Float,
 	allowRGB:Bool,
 	allowPixel:Bool,
+	?pixelOffset:Array<Float>,
 	rgb:Array<Null<RGB>>
 }
 
@@ -108,6 +109,8 @@ class NoteSplash extends FlxSprite
 					allowPixel: config.allowPixel,
 					rgb: config.rgb
 				}
+				if (Std.isOfType(config.pixelOffset, Array) && config.pixelOffset.length == 2)
+					tempConfig.pixelOffset = config.pixelOffset;
 
 				for (i in Reflect.fields(config.animations))
 				{
@@ -224,18 +227,12 @@ class NoteSplash extends FlxSprite
 		sourceNote = note;
 		refreshColors();
 
-		offset.set(10, 10);
 		var conf:NoteSplashAnim = config.animations.get(anim);
-		var offsets:Array<Float> = [0, 0];
-		if (conf != null) offsets = conf.offsets;
-		if (offsets != null)
-		{
-			offset.x += offsets[0];
-			offset.y += offsets[1];
-		}
+		var offsets = getAnimOffsets(conf);
 		// Flixel scales around origin, while offsets are in screen pixels.
 		// Scale the complete 4K anchor, including the origin compensation.
-		offset.set(offset.x * fieldScale + origin.x * (1 - fieldScale), offset.y * fieldScale + origin.y * (1 - fieldScale));
+		offset.set((10 + offsets[0]) * fieldScale + origin.x * (1 - fieldScale),
+			(10 + offsets[1]) * fieldScale + origin.y * (1 - fieldScale));
 
 		animation.finishCallback = function(name:String) {
 			kill();
@@ -275,6 +272,15 @@ class NoteSplash extends FlxSprite
 		return defaultNoteSplash + getSplashSkinPostfix();
 	}
 
+	function getAnimOffsets(anim:NoteSplashAnim):Array<Float>
+	{
+		var offsets = anim != null && anim.offsets != null ? anim.offsets : [0.0, 0.0];
+		var pixelOffset = config.pixelOffset;
+		if (PlayState.isPixelStage && pixelOffset != null)
+			return [offsets[0] + pixelOffset[0], offsets[1] + pixelOffset[1]];
+		return offsets;
+	}
+
 	/** Replace a paused effect's skin at the same point in its animation. */
 	public function refreshSkin():Void
 	{
@@ -284,7 +290,7 @@ class NoteSplash extends FlxSprite
 		var oldAnim = animation.curAnim;
 		var phase:Float = oldAnim != null ? (oldAnim.curFrame + @:privateAccess oldAnim._frameTimer * oldAnim.frameRate) / oldAnim.numFrames : 0;
 		var oldConfig = oldAnim != null ? config.animations.get(oldAnim.name) : null;
-		var oldOffsets = oldConfig != null && oldConfig.offsets != null ? oldConfig.offsets : [0.0, 0.0];
+		var oldOffsets = getAnimOffsets(oldConfig);
 		var fieldScale = babyArrow != null ? KeyMode.scale(babyArrow.keyCount) : 1;
 		var extraX = offset.x - (10 + oldOffsets[0]) * fieldScale - origin.x * (1 - fieldScale);
 		var extraY = offset.y - (10 + oldOffsets[1]) * fieldScale - origin.y * (1 - fieldScale);
@@ -295,7 +301,7 @@ class NoteSplash extends FlxSprite
 		noteData = maxAnims > 0 ? data % (maxAnims * Note.colArray.length) : data % Note.colArray.length;
 		var animName = playDefaultAnim();
 		var conf = config.animations.get(animName);
-		var offsets = conf != null && conf.offsets != null ? conf.offsets : [0.0, 0.0];
+		var offsets = getAnimOffsets(conf);
 		scale.set(scaleX * config.scale, scaleY * config.scale);
 		offset.set((10 + offsets[0]) * fieldScale + origin.x * (1 - fieldScale) + extraX,
 			(10 + offsets[1]) * fieldScale + origin.y * (1 - fieldScale) + extraY);
@@ -505,6 +511,16 @@ class NoteHoldCover extends FlxSprite
 	var previewTime:Float;
 	var pixel:Bool;
 	var texture:String;
+
+	public static function spawn(group:FlxTypedGroup<NoteHoldCover>, arrow:StrumNote, note:Note)
+	{
+		if(arrow == null || note.isSustainNote || note.sustainLength <= 0 || note.hitCausesMiss || note.blockHit) return;
+		group.forEachAlive(function(cover:NoteHoldCover)
+		{
+			if(cover.babyArrow == arrow && !cover.ending) cover.kill();
+		});
+		group.recycle(NoteHoldCover).start(arrow, note);
+	}
 
 	public function new()
 	{
