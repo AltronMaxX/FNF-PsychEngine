@@ -17,11 +17,13 @@ class FlashingState extends MusicBeatState
 	var revealElapsed:Float = 0;
 	var introFinished:Bool = false;
 	var acceptReady:Bool = false;
+	var mouseIdleTime:Float = 0;
 
 	override function create()
 	{
 		super.create();
 		leftState = false;
+		FlxG.mouse.visible = false;
 
 		add(new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK));
 		content = new FlxSpriteGroup();
@@ -53,13 +55,30 @@ class FlashingState extends MusicBeatState
 		if (leftState) return;
 
 		final accept:Bool = controls.ACCEPT || FlxG.keys.justPressed.SPACE || FlxG.keys.justPressed.ENTER;
+		final click:Bool = FlxG.mouse.justPressed;
+		final mouseMoved:Bool = FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0;
+		if (mouseMoved || click)
+		{
+			mouseIdleTime = 0;
+			FlxG.mouse.visible = true;
+		}
+		else if (FlxG.mouse.visible)
+		{
+			mouseIdleTime += elapsed;
+			if (mouseIdleTime > 2) FlxG.mouse.visible = false;
+		}
+
+		// Require the skip/entry button to be released before accepting a choice.
+		if (!introFinished || !acceptReady)
+			acceptReady = !controls.pressed('accept') && !FlxG.keys.pressed.SPACE && !FlxG.keys.pressed.ENTER && !FlxG.mouse.pressed;
+
 		if (!introFinished)
 		{
 			revealElapsed += elapsed;
 			for (i in 0...revealItems.length)
 				revealItems[i].alpha = FlxMath.bound((revealElapsed - i * REVEAL_INTERVAL) / REVEAL_DURATION, 0, 1);
 
-			if (accept || revealElapsed >= (revealItems.length - 1) * REVEAL_INTERVAL + REVEAL_DURATION)
+			if (accept || click || revealElapsed >= (revealItems.length - 1) * REVEAL_INTERVAL + REVEAL_DURATION)
 			{
 				introFinished = true;
 				for (item in revealItems) item.alpha = 1;
@@ -69,28 +88,35 @@ class FlashingState extends MusicBeatState
 			return;
 		}
 
-		// Require the skip/entry button to be released before accepting a choice.
-		if (!acceptReady)
-			acceptReady = !controls.pressed('accept') && !FlxG.keys.pressed.SPACE && !FlxG.keys.pressed.ENTER;
-
 		final up:Bool = controls.UI_UP_P || FlxG.keys.justPressed.UP;
 		final down:Bool = controls.UI_DOWN_P || FlxG.keys.justPressed.DOWN;
 		if (up != down)
 		{
 			if (selectedOption < 0)
-				selectedOption = down ? 1 : 0;
+				selectOption(down ? 1 : 0);
 			else
-				selectedOption = (selectedOption + (down ? 1 : -1) + optionBorders.length) % optionBorders.length;
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-			updateOptions();
+				selectOption((selectedOption + (down ? 1 : -1) + optionBorders.length) % optionBorders.length);
 			updateHint();
 			return;
 		}
 
+		var clickedOption:Bool = false;
+		if (click || (mouseMoved && !accept))
+		{
+			for (i in 0...optionBorders.length)
+			{
+				if (!FlxG.mouse.overlaps(optionBorders[i])) continue;
+				selectOption(i);
+				clickedOption = click;
+				break;
+			}
+		}
+
 		updateHint();
-		if (accept && acceptReady && selectedOption >= 0)
+		if ((accept || clickedOption) && acceptReady && selectedOption >= 0)
 		{
 			leftState = true;
+			FlxG.mouse.visible = false;
 			ClientPrefs.data.flashing = selectedOption == 0;
 			ClientPrefs.saveSettings();
 			FlxG.sound.play(Paths.sound('confirmMenu'));
@@ -140,6 +166,14 @@ class FlashingState extends MusicBeatState
 		addRevealItem(option);
 	}
 
+	function selectOption(index:Int):Void
+	{
+		if (selectedOption == index) return;
+		selectedOption = index;
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+		updateOptions();
+	}
+
 	function updateOptions():Void
 	{
 		for (i in 0...optionBorders.length)
@@ -153,10 +187,10 @@ class FlashingState extends MusicBeatState
 	{
 		final confirm:String = controls.controllerMode ? 'A / START' : 'SPACE / ENTER';
 		if (!introFinished)
-			inputHint.text = confirm + ' - Show all';
+			inputHint.text = confirm + ' or click - Show all';
 		else if (selectedOption < 0)
-			inputHint.text = 'UP / DOWN - Choose an option first';
+			inputHint.text = 'UP / DOWN or hover - Choose an option first';
 		else
-			inputHint.text = 'UP / DOWN - Choose    |    ' + confirm + ' - Confirm';
+			inputHint.text = 'UP / DOWN or hover - Choose    |    ' + confirm + ' or click - Confirm';
 	}
 }
